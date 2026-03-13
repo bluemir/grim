@@ -84,6 +84,15 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 		))
 	}
 
+	// Separator line between label and children area
+	if len(node.Children) > 0 {
+		sepY := absY + labelHeight
+		b.WriteString(fmt.Sprintf(
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			indent, absX, sepY, absX+node.W, sepY, escapeXML(node.Style.Stroke), node.Style.StrokeWidth,
+		))
+	}
+
 	// Render children
 	for _, child := range node.Children {
 		renderNode(b, child, absX+child.X, absY+child.Y, indent+"  ")

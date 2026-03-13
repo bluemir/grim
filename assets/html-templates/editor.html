@@ -25,7 +25,10 @@
 		<main>
 			<div row grid>
 				<div col="6">
-					<textarea id="code-editor"></textarea>
+					<textarea id="code-editor" is="enhanced-textarea"
+						tab-size="4"
+						indent="tab"
+					></textarea>
 				</div>
 				<div col="6" id="svg-preview">
 					<!-- svg -->
@@ -138,11 +141,21 @@
 				svg.style.cursor = "";
 
 				const pt = getSVGPoint(svg, e.clientX, e.clientY);
-				const newX = Math.round(origX + pt.x - startSVG.x);
-				const newY = Math.round(origY + pt.y - startSVG.y);
+				let newX = Math.round(origX + pt.x - startSVG.x);
+				let newY = Math.round(origY + pt.y - startSVG.y);
 
 				const id = group.dataset.id;
 				const line = parseInt(group.dataset.line, 10);
+
+				// 중첩 노드: 부모의 절대 좌표를 빼서 상대 좌표로 변환
+				const parentGroup = group.parentElement.closest("g[data-id]");
+				if (parentGroup) {
+					const parentRect = parentGroup.querySelector(":scope > rect");
+					if (parentRect) {
+						newX -= parseFloat(parentRect.getAttribute("x"));
+						newY -= parseFloat(parentRect.getAttribute("y"));
+					}
+				}
 
 				updateNodeLayout(id, line, newX, newY);
 				render();
@@ -160,18 +173,45 @@
 			function updateNodeLayout(id, line, newX, newY) {
 				const lines = editor.value.split("\n");
 				const lineIdx = line - 1;
-				if (lineIdx < 0 || lineIdx >= lines.length) return;
 
 				const layoutStr = `@layout { x: ${newX}, y: ${newY} }`;
 
-				// Case 1: 이미 @layout이 있는 경우
+				// 암시적 노드: 소스에 선언이 없으므로 새로 삽입
+				if (lineIdx < 0) {
+					const dotIdx = id.lastIndexOf(".");
+					if (dotIdx !== -1) {
+						// 중첩 암시적 노드 — 부모 블록 안에 삽입
+						const parentID = id.substring(0, dotIdx);
+						const localName = id.substring(dotIdx + 1);
+						const parentGroup = preview.querySelector(`g[data-id="${parentID}"]`);
+						if (parentGroup) {
+							const parentLine = parseInt(parentGroup.dataset.line, 10);
+							const parentIdx = parentLine - 1;
+							for (let i = parentIdx; i < Math.min(parentIdx + 3, lines.length); i++) {
+								if (lines[i].includes("{")) {
+									lines.splice(i + 1, 0, `\t${localName}: {`, `\t\t${layoutStr}`, `\t}`);
+									editor.value = lines.join("\n");
+									return;
+								}
+							}
+						}
+					}
+					// 최상위 암시적 노드 — 소스 끝에 추가
+					lines.push(`${id}: {`, `\t${layoutStr}`, `}`);
+					editor.value = lines.join("\n");
+					return;
+				}
+
+				if (lineIdx >= lines.length) return;
+
+				// Case 1: 이미 @layout이 있는 경우 — 블록 닫힘(})까지 탐색
 				for (let i = lineIdx; i < lines.length; i++) {
 					if (/^\s*@layout\s*\{/.test(lines[i])) {
 						lines[i] = lines[i].replace(/@layout\s*\{[^}]*\}/, layoutStr);
 						editor.value = lines.join("\n");
 						return;
 					}
-					if (i > lineIdx && /^\S/.test(lines[i])) break;
+					if (i > lineIdx && /^\s*\}/.test(lines[i])) break;
 				}
 
 				// Case 2: 블록이 있는 경우 — { 다음 줄에 삽입

@@ -98,6 +98,8 @@ func BuildLayout(doc *parser.Document) *LayoutResult {
 			if !node.Fixed {
 				unfixedNodes = append(unfixedNodes, node)
 			}
+			// Collect edges from nested blocks
+			result.Edges = append(result.Edges, collectNestedEdges(s, "")...)
 		case *parser.EdgeDecl:
 			edge := buildEdge(s)
 			result.Edges = append(result.Edges, edge)
@@ -114,6 +116,16 @@ func BuildLayout(doc *parser.Document) *LayoutResult {
 					Style: defaultNodeStyle,
 				}
 				node.W, node.H = computeNodeSize(node.Label, nil)
+				// If the ID contains ".", it belongs to a parent node
+				if dotIdx := strings.LastIndex(id, "."); dotIdx != -1 {
+					parentID := id[:dotIdx]
+					if parent, ok := nodeMap[parentID]; ok {
+						parent.Children = append(parent.Children, node)
+						nodeMap[id] = node
+						continue
+					}
+				}
+				// Fallback: add as top-level node
 				result.Nodes = append(result.Nodes, node)
 				nodeMap[id] = node
 				unfixedNodes = append(unfixedNodes, node)
@@ -121,13 +133,13 @@ func BuildLayout(doc *parser.Document) *LayoutResult {
 		}
 	}
 
-	// Phase 3: layout unfixed nodes using grid
-	layoutGrid(unfixedNodes, gridTotalWidth)
-
-	// Phase 4: layout children of each node
+	// Phase 3: layout children first (so parent sizes are finalized)
 	for _, node := range result.Nodes {
 		layoutChildren(node)
 	}
+
+	// Phase 4: layout unfixed top-level nodes using grid (with correct sizes)
+	layoutGrid(unfixedNodes, gridTotalWidth)
 
 	// Phase 5: compute canvas bounding box
 	result.Width, result.Height = computeBounds(result.Nodes)
@@ -260,7 +272,7 @@ func computeChildBounds(children []*LayoutNode) (float64, float64) {
 	return maxX, maxY
 }
 
-// layoutGrid places unfixed nodes in a 12-column grid.
+// layoutGrid places unfixed nodes in a 12-column grid with variable row heights.
 func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 	if len(nodes) == 0 {
 		return
@@ -269,6 +281,15 @@ func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 	colWidth := totalWidth / gridColumns
 	// Grid occupancy: rows of columns (true = occupied)
 	grid := make([][]bool, 0)
+	// Track the maximum height of each row
+	rowHeights := make([]float64, 0)
+	// Track which row each node was placed in
+	type placement struct {
+		node *LayoutNode
+		col  int
+		row  int
+	}
+	var placements []placement
 
 	for _, node := range nodes {
 		colSpan := int(math.Ceil(node.W / colWidth))
@@ -286,6 +307,7 @@ func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 			// Ensure row exists
 			for len(grid) <= row {
 				grid = append(grid, make([]bool, gridColumns))
+				rowHeights = append(rowHeights, defaultNodeH)
 			}
 
 			for col := 0; col <= gridColumns-colSpan; col++ {
@@ -297,13 +319,18 @@ func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 					}
 				}
 				if fits {
-					// Place node
+					// Place node in column
 					node.X = float64(col) * colWidth
-					node.Y = float64(row) * (defaultNodeH + nodePadY)
+					// Update row height to accommodate this node
+					if node.H > rowHeights[row] {
+						rowHeights[row] = node.H
+					}
+					placements = append(placements, placement{node: node, col: col, row: row})
 					// Mark cells as occupied
 					for r := row; r < row+rowSpan; r++ {
 						for len(grid) <= r {
 							grid = append(grid, make([]bool, gridColumns))
+							rowHeights = append(rowHeights, defaultNodeH)
 						}
 						for c := col; c < col+colSpan; c++ {
 							grid[r][c] = true
@@ -314,6 +341,15 @@ func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 				}
 			}
 		}
+	}
+
+	// Recompute Y positions using cumulative row heights
+	for _, p := range placements {
+		var y float64
+		for r := 0; r < p.row; r++ {
+			y += rowHeights[r] + nodePadY
+		}
+		p.node.Y = y
 	}
 }
 
@@ -344,11 +380,17 @@ func layoutChildren(parent *LayoutNode) {
 
 	// Offset all children relative to parent's content area
 	for _, child := range parent.Children {
-		child.X += nestedPadding
-		child.Y += labelHeight + nestedPadding
+		if !child.Fixed {
+			child.X += nestedPadding
+			child.Y += labelHeight + nestedPadding
+		}
 	}
 
-	// Expand parent to fit children if needed
+	// Recalculate parent size from actual child positions
+	textW := float64(len(parent.Label))*charWidth + nodePadX
+	parent.W = math.Max(defaultNodeW, textW)
+	parent.H = labelHeight + nestedPadding // minimum: label area + bottom padding
+
 	for _, child := range parent.Children {
 		needW := child.X + child.W + nestedPadding
 		needH := child.Y + child.H + nestedPadding
@@ -374,6 +416,28 @@ func computeBounds(nodes []*LayoutNode) (float64, float64) {
 		}
 	}
 	return maxX + canvasMargin, maxY + canvasMargin
+}
+
+func collectNestedEdges(decl *parser.NodeDecl, parentPrefix string) []*LayoutEdge {
+	if decl.Block == nil {
+		return nil
+	}
+	id := parentPrefix + strings.Join(decl.Path, ".")
+	childPrefix := id + "."
+	var edges []*LayoutEdge
+	for _, child := range decl.Block.Children {
+		switch c := child.(type) {
+		case *parser.EdgeDecl:
+			edge := buildEdge(c)
+			edge.FromID = childPrefix + edge.FromID
+			edge.ToID = childPrefix + edge.ToID
+			edge.ID = edge.FromID + "--" + edge.ToID
+			edges = append(edges, edge)
+		case *parser.NodeDecl:
+			edges = append(edges, collectNestedEdges(c, childPrefix)...)
+		}
+	}
+	return edges
 }
 
 func registerNodes(node *LayoutNode, nodeMap map[string]*LayoutNode) {

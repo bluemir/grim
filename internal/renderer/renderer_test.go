@@ -195,6 +195,158 @@ func TestRenderImplicitNodes(t *testing.T) {
 	}
 }
 
+func TestRenderNestedEdges(t *testing.T) {
+	doc, err := parser.Parse(`parent: {
+  A
+  B
+  A -> B
+}`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	svg := Render(doc)
+
+	// Nested edge should have prefixed IDs
+	if !strings.Contains(svg, `data-id="parent.A--parent.B"`) {
+		t.Error("expected nested edge with prefixed IDs parent.A--parent.B")
+	}
+	// Both child nodes should exist
+	if !strings.Contains(svg, `data-id="parent.A"`) {
+		t.Error("expected data-id for parent.A")
+	}
+	if !strings.Contains(svg, `data-id="parent.B"`) {
+		t.Error("expected data-id for parent.B")
+	}
+}
+
+func TestRenderVariableRowHeights(t *testing.T) {
+	// A parent node with children should be taller than a simple node.
+	// The second row's Y position should account for the taller first row.
+	doc, err := parser.Parse(`parent: {
+  child1
+  child2
+}
+A
+B
+C
+D
+E
+F
+G
+H
+I
+J
+K`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	layout := BuildLayout(doc)
+
+	// Find parent node and a node that should be in a later row
+	var parentNode *LayoutNode
+	for _, n := range layout.Nodes {
+		if n.ID == "parent" {
+			parentNode = n
+		}
+	}
+	if parentNode == nil {
+		t.Fatal("expected parent node")
+	}
+
+	// Parent should be taller than default
+	if parentNode.H <= defaultNodeH {
+		t.Errorf("parent height %.1f should be greater than default %.1f", parentNode.H, defaultNodeH)
+	}
+
+	// Nodes in subsequent rows should not overlap with the parent
+	for _, n := range layout.Nodes {
+		if n.ID == "parent" {
+			continue
+		}
+		if n.Y > 0 && n.Y < parentNode.Y+parentNode.H && n.X < parentNode.X+parentNode.W && n.X+n.W > parentNode.X {
+			// This node overlaps with parent vertically — only OK if it's in the same row (Y==0)
+			if n.Y > 0 && n.Y < parentNode.H {
+				t.Errorf("node %s at Y=%.1f overlaps with parent (H=%.1f)", n.ID, n.Y, parentNode.H)
+			}
+		}
+	}
+}
+
+func TestRenderParentSeparatorLine(t *testing.T) {
+	doc, err := parser.Parse(`parent: {
+  child
+}`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	svg := Render(doc)
+
+	// Should contain a separator line at labelHeight below parent's top
+	// The line should be a <line> element inside the parent's <g>
+	if !strings.Contains(svg, "<line x1=") {
+		t.Error("expected separator <line> element in parent node")
+	}
+}
+
+func TestRenderNestedImplicitNodes(t *testing.T) {
+	// Implicit nodes referenced only by edges inside a parent block
+	// should be placed as children of that parent, not as top-level nodes.
+	doc, err := parser.Parse(`C: {
+  node1 -> node2
+}`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+
+	layout := BuildLayout(doc)
+
+	// Find parent node C
+	var parentNode *LayoutNode
+	for _, n := range layout.Nodes {
+		if n.ID == "C" {
+			parentNode = n
+		}
+	}
+	if parentNode == nil {
+		t.Fatal("expected parent node C")
+	}
+
+	// node1 and node2 should be children of C, not top-level nodes
+	if len(parentNode.Children) != 2 {
+		t.Fatalf("expected 2 children in C, got %d", len(parentNode.Children))
+	}
+
+	childIDs := map[string]bool{}
+	for _, child := range parentNode.Children {
+		childIDs[child.ID] = true
+	}
+	if !childIDs["C.node1"] {
+		t.Error("expected C.node1 as child of C")
+	}
+	if !childIDs["C.node2"] {
+		t.Error("expected C.node2 as child of C")
+	}
+
+	// Implicit nodes should NOT appear as top-level nodes
+	for _, n := range layout.Nodes {
+		if n.ID == "C.node1" || n.ID == "C.node2" {
+			t.Errorf("implicit node %s should not be a top-level node", n.ID)
+		}
+	}
+
+	// SVG rendering should include the implicit nodes inside the parent
+	svg := Render(doc)
+	if !strings.Contains(svg, `data-id="C.node1"`) {
+		t.Error("expected data-id for C.node1 in SVG")
+	}
+	if !strings.Contains(svg, `data-id="C.node2"`) {
+		t.Error("expected data-id for C.node2 in SVG")
+	}
+}
+
 func TestRenderSVGHasViewBox(t *testing.T) {
 	doc, err := parser.Parse("A")
 	if err != nil {

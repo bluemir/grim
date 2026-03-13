@@ -8,16 +8,47 @@
                 background-color: var(--gray-300);
             }
 
+            html, body {
+                height: 100%;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            body > main {
+                flex: 1;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            body > main > [row][grid] {
+                height: 100%;
+                overflow: hidden;
+                align-items: stretch;
+            }
+
             textarea {
                 width: 100%;
-                min-height: 20rem;
-                resize: vertical;
-                field-sizing: content;
+                height: 100%;
+                min-height: unset;
+                resize: none;
+                field-sizing: normal;
+                box-sizing: border-box;
+            }
+
+            [col="6"]:has(textarea) {
+                overflow-y: auto;
+                min-height: 0;
             }
 
             #svg-preview {
                 position: relative;
                 overflow: auto;
+                height: 100%;
+                min-height: 0;
+                box-sizing: border-box;
             }
 
             #svg-preview .zoom-controls {

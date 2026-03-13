@@ -44,6 +44,15 @@ type Comment struct {
 func (*Comment) statementNode() {}
 func (c *Comment) GetLine() int { return c.Line }
 
+// BlankLine represents a blank line in the source (preserved for formatting).
+// Multiple consecutive blank lines are collapsed to one.
+type BlankLine struct {
+	Line int
+}
+
+func (*BlankLine) statementNode() {}
+func (b *BlankLine) GetLine() int { return b.Line }
+
 // Block holds metadata directives and child statements within { }.
 type Block struct {
 	Line     int

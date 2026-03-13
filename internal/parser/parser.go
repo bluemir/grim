@@ -122,6 +122,23 @@ func (p *Parser) popBlock() {
 	}
 }
 
+// lastIsBlankLine reports whether the last statement added is a BlankLine,
+// or whether there are no statements yet (to prevent leading blank lines).
+// Used to collapse consecutive blank lines to one.
+func (p *Parser) lastIsBlankLine() bool {
+	var stmts []Statement
+	if len(p.stack) > 0 {
+		stmts = p.stack[len(p.stack)-1].block.Children
+	} else {
+		stmts = p.doc.Statements
+	}
+	if len(stmts) == 0 {
+		return true // treat empty as "already blank" to prevent leading blank lines
+	}
+	_, ok := stmts[len(stmts)-1].(*BlankLine)
+	return ok
+}
+
 // parseJSONObject parses a simplified JSON-like object (after the opening {).
 // Supports: strings, numbers, nested objects, arrays.
 func (p *Parser) parseJSONObject() map[string]interface{} {

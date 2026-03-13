@@ -19,15 +19,21 @@ type blockContext struct {
 
 // --- stateTopLevel ---
 // Entry state: expects Ident (node/edge), @, }, Comment, Newline, EOF.
-type stateTopLevel struct{}
+type stateTopLevel struct {
+	prevNewline bool // true if the last token was a newline (for blank line detection)
+}
 
-func (stateTopLevel) Handle(p *Parser, tok Token) (ParseState, error) {
+func (s stateTopLevel) Handle(p *Parser, tok Token) (ParseState, error) {
 	switch tok.Type {
-	case TokenNewline, TokenComment:
-		if tok.Type == TokenComment {
-			p.addStatement(&Comment{Line: tok.Line, Text: tok.Value})
+	case TokenNewline:
+		if s.prevNewline && !p.lastIsBlankLine() {
+			p.addStatement(&BlankLine{Line: tok.Line})
 		}
-		return stateTopLevel{}, nil
+		return stateTopLevel{prevNewline: true}, nil
+
+	case TokenComment:
+		p.addStatement(&Comment{Line: tok.Line, Text: tok.Value})
+		return stateTopLevel{prevNewline: false}, nil
 
 	case TokenEOF:
 		return stateTopLevel{}, nil
@@ -121,7 +127,7 @@ func (stateAfterIdent) Handle(p *Parser, tok Token) (ParseState, error) {
 		if tok.Type == TokenComment {
 			p.addStatement(&Comment{Line: tok.Line, Text: tok.Value})
 		}
-		return stateTopLevel{}, nil
+		return stateTopLevel{prevNewline: tok.Type == TokenNewline}, nil
 
 	default:
 		p.addError(tok.Line, tok.Col, fmt.Sprintf("unexpected token %s after identifier", tok.Type))
@@ -194,7 +200,7 @@ func (stateAfterEdgeTarget) Handle(p *Parser, tok Token) (ParseState, error) {
 		if tok.Type == TokenComment {
 			p.addStatement(&Comment{Line: tok.Line, Text: tok.Value})
 		}
-		return stateTopLevel{}, nil
+		return stateTopLevel{prevNewline: tok.Type == TokenNewline}, nil
 
 	default:
 		p.addError(tok.Line, tok.Col, fmt.Sprintf("unexpected token %s after edge target", tok.Type))
@@ -244,7 +250,7 @@ func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
 		} else {
 			p.addStatement(&NodeDecl{Line: s.line, Path: s.path})
 		}
-		return stateTopLevel{}, nil
+		return stateTopLevel{prevNewline: tok.Type == TokenNewline}, nil
 
 	default:
 		// Rest-of-line text as label (e.g., `A -> B: Read`)
@@ -319,7 +325,7 @@ func (s stateTextMeta) Handle(p *Parser, tok Token) (ParseState, error) {
 	case TokenNewline, TokenEOF:
 		// @text with no value
 		p.addMetadata(&TextMeta{Line: s.line, Format: s.format, Value: ""})
-		return stateTopLevel{}, nil
+		return stateTopLevel{prevNewline: tok.Type == TokenNewline}, nil
 
 	default:
 		// Rest-of-line text: @text hello world

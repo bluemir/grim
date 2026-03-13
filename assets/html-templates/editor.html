@@ -41,6 +41,33 @@
             [col="6"]:has(textarea) {
                 overflow-y: auto;
                 min-height: 0;
+                display: flex;
+                flex-direction: column;
+            }
+
+            .editor-toolbar {
+                flex-shrink: 0;
+                padding: 0.25rem 0.5rem;
+                background: var(--gray-200, #eee);
+                border-bottom: 1px solid var(--gray-300, #ccc);
+                display: flex;
+                gap: 0.25rem;
+                align-items: center;
+                font-size: 0.8rem;
+                user-select: none;
+            }
+
+            .editor-toolbar button {
+                cursor: pointer;
+                padding: 0.1rem 0.4rem;
+                font-size: 0.85rem;
+                border: 1px solid var(--gray-400, #aaa);
+                background: var(--gray-100, #f5f5f5);
+                border-radius: 3px;
+            }
+
+            .editor-toolbar button:hover {
+                background: var(--gray-300, #ddd);
             }
 
             #svg-preview {
@@ -96,6 +123,9 @@
         <main>
             <div row grid>
                 <div col="6">
+                    <div class="editor-toolbar">
+                        <button id="format-btn" title="Format code (Shift+Alt+F)">Format</button>
+                    </div>
                     <textarea id="code-editor" is="enhanced-textarea"
                         tab-size="4"
                         indent="tab"
@@ -162,6 +192,23 @@
             editor.addEventListener("input", () => {
                 clearTimeout(debounceTimer);
                 debounceTimer = setTimeout(render, 300);
+            });
+
+            // --- Format ---
+
+            function format() {
+                editor.value = grimFormat(editor.value);
+                render();
+            }
+
+            document.getElementById("format-btn").addEventListener("click", format);
+
+            // Shift+Alt+F (VS Code standard format shortcut)
+            window.addEventListener("keydown", (e) => {
+                if (e.shiftKey && e.altKey && e.code === "KeyF") {
+                    e.preventDefault();
+                    format();
+                }
             });
 
             // --- 줌 인/아웃 ---

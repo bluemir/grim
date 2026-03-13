@@ -1461,25 +1461,45 @@ my-node.inside-node.inside-sq-node -> pg
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	// Top-level: network, edge, explanation, pg, my-node, dotted-edge, comment
+	// Top-level: network, BlankLine, edge, BlankLine, explanation, BlankLine,
+	//            pg, BlankLine, my-node, BlankLine, dotted-edge, BlankLine, comment
+	// BlankLine nodes are now preserved in the AST between top-level declarations.
 	if len(doc.Statements) < 7 {
 		t.Errorf("expected at least 7 top-level statements, got %d", len(doc.Statements))
 	}
 
+	// Helper: collect non-blank top-level statements for index-stable access
+	var nonBlank []Statement
+	for _, s := range doc.Statements {
+		if _, ok := s.(*BlankLine); !ok {
+			nonBlank = append(nonBlank, s)
+		}
+	}
+	if len(nonBlank) < 7 {
+		t.Fatalf("expected at least 7 non-blank top-level statements, got %d", len(nonBlank))
+	}
+
 	// Verify network
-	network := doc.Statements[0].(*NodeDecl)
+	network := nonBlank[0].(*NodeDecl)
 	if network.Path[0] != "network" {
 		t.Errorf("expected 'network', got %v", network.Path)
 	}
 	if len(network.Block.Metadata) != 2 {
 		t.Errorf("expected 2 metadata on network, got %d", len(network.Block.Metadata))
 	}
-	if len(network.Block.Children) != 3 {
-		t.Errorf("expected 3 children in network (frontend, backend, edge), got %d", len(network.Block.Children))
+	// Filter blank lines from block children for index-stable access
+	var networkChildren []Statement
+	for _, s := range network.Block.Children {
+		if _, ok := s.(*BlankLine); !ok {
+			networkChildren = append(networkChildren, s)
+		}
+	}
+	if len(networkChildren) != 3 {
+		t.Errorf("expected 3 non-blank children in network (frontend, backend, edge), got %d", len(networkChildren))
 	}
 
 	// Verify frontend inside network
-	fe := network.Block.Children[0].(*NodeDecl)
+	fe := networkChildren[0].(*NodeDecl)
 	if fe.Path[0] != "frontend" {
 		t.Errorf("expected 'frontend', got %v", fe.Path)
 	}
@@ -1488,13 +1508,13 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify backend inside network
-	be := network.Block.Children[1].(*NodeDecl)
+	be := networkChildren[1].(*NodeDecl)
 	if be.Path[0] != "backend" {
 		t.Errorf("expected 'backend', got %v", be.Path)
 	}
 
 	// Verify edge inside network
-	innerEdge := network.Block.Children[2].(*EdgeDecl)
+	innerEdge := networkChildren[2].(*EdgeDecl)
 	if innerEdge.From[0] != "frontend" || innerEdge.To[0] != "backend" {
 		t.Errorf("expected frontend -> backend edge")
 	}
@@ -1503,7 +1523,7 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify top-level edge
-	topEdge := doc.Statements[1].(*EdgeDecl)
+	topEdge := nonBlank[1].(*EdgeDecl)
 	if topEdge.From[0] != "frontend" || topEdge.To[0] != "database" {
 		t.Errorf("expected frontend -> database edge")
 	}
@@ -1512,7 +1532,7 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify explanation
-	expl := doc.Statements[2].(*NodeDecl)
+	expl := nonBlank[2].(*NodeDecl)
 	if expl.Path[0] != "explanation" {
 		t.Errorf("expected 'explanation', got %v", expl.Path)
 	}
@@ -1522,7 +1542,7 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify pg
-	pg := doc.Statements[3].(*NodeDecl)
+	pg := nonBlank[3].(*NodeDecl)
 	if pg.Path[0] != "pg" {
 		t.Errorf("expected 'pg', got %v", pg.Path)
 	}
@@ -1532,7 +1552,7 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify dotted edge at end
-	dottedEdge := doc.Statements[5].(*EdgeDecl)
+	dottedEdge := nonBlank[5].(*EdgeDecl)
 	if len(dottedEdge.From) != 3 {
 		t.Errorf("expected 3 from segments, got %d", len(dottedEdge.From))
 	}
@@ -1544,7 +1564,7 @@ my-node.inside-node.inside-sq-node -> pg
 	}
 
 	// Verify trailing comment
-	lastComment := doc.Statements[6].(*Comment)
+	lastComment := nonBlank[6].(*Comment)
 	if lastComment.Text != " comment" {
 		t.Errorf("expected ' comment', got %q", lastComment.Text)
 	}

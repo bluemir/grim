@@ -31,6 +31,7 @@ func main() {
 	quit := make(chan struct{}, 0)
 
 	js.Global().Set("grimRender", js.FuncOf(renderGrim))
+	js.Global().Set("grimFormat", js.FuncOf(formatGrim))
 	js.Global().Set("grimShutdown", js.FuncOf(func(this js.Value, args []js.Value) any {
 		quit <- struct{}{} // 채널에 신호 전송
 		return nil
@@ -41,6 +42,16 @@ func main() {
 
 	// JS에서 shutdownGrim()을 호출하면 대기가 풀리고 프로그램이 정상 종료됨
 	logrus.Info("Grim WASM 엔진이 종료되었습니다.")
+}
+
+func formatGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	doc, err := parser.Parse(code)
+	if err != nil {
+		// Return original code on parse error (safe fallback)
+		return js.ValueOf(code)
+	}
+	return js.ValueOf(parser.Format(doc))
 }
 
 func renderGrim(this js.Value, args []js.Value) any {

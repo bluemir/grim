@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>grim</title>
+		{{ template "snippet/header.html" . }}
+		<style>
+			header {
+				background-color: var(--gray-300);
+			}
+
+			textarea {
+				width: 100%;
+				min-height: 20rem;
+				resize: vertical;
+				field-sizing: content;
+			}
+		</style>
+	</head>
+	<body layout="one-page">
+		<header>
+			<div row>
+				<global-navigation-bar></global-navigation-bar>
+			</div>
+		</header>
+		<main>
+			<div row grid>
+				<div col="6">
+					<textarea id="code-editor"></textarea>
+				</div>
+				<div col="6" id="svg-preview">
+					<!-- svg -->
+				</div>
+			</div>
+		</main>
+		<script src="/static/{{rev .}}/bundle/wasm/wasm_exec.js"></script>
+		<script type="module">
+			const editor = document.getElementById("code-editor");
+			const preview = document.getElementById("svg-preview");
+
+			// WASM 로드
+			const go = new Go();
+			const result = await WebAssembly.instantiateStreaming(
+				fetch("/static/{{rev .}}/bundle/wasm/grim.wasm"),
+				go.importObject,
+			);
+			go.run(result.instance);
+
+			// textarea 입력 → WASM 렌더링 → SVG 표시
+			let debounceTimer;
+			function render() {
+				const svg = grimRender(editor.value);
+				preview.innerHTML = svg;
+			}
+
+			editor.addEventListener("input", () => {
+				clearTimeout(debounceTimer);
+				debounceTimer = setTimeout(render, 300);
+			});
+
+			// 초기 렌더링
+			render();
+		</script>
+	</body>
+</html>

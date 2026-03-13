@@ -1,0 +1,52 @@
+VERSION?=$(shell git describe --tags --dirty --always)
+export VERSION
+
+IMPORT_PATH=$(shell cat go.mod | head -n 1 | awk '{print $$2}')
+APP_NAME=$(notdir $(IMPORT_PATH))
+
+export GO111MODULE=on
+export GOPRIVATE=
+export PATH:=./runtime/tools:$(PATH)
+
+# go build args
+OPTIONAL_BUILD_ARGS?=
+
+ifneq ($(shell printf '%s\n' "$(MIN_MAKE_VERSION)" "$(MAKE_VERSION)" | sort -V | tail -n 1),$(MAKE_VERSION))
+    $(error Makefile을 실행하려면 Make 버전 4.3 이상이 필요합니다. 현재 버전: $(MAKE_VERSION))
+endif
+
+.PHONY: default
+default: build
+
+# sub-makefiles
+# for build tools, docker build, deploy, static web files.
+include scripts/makefile.d/*.mk
+
+##@ General
+.PHONY: clean
+clean: ## Clean up
+	rm -rf build/ $(OPTIONAL_CLEAN)
+
+.PHONY: build-tools
+build-tools: ## Install build tools
+	# Build tool installed
+.PHONY: tools
+tools: build-tools ## Install tools(include build tools)
+	# Tool installed
+
+.PHONY: help
+help: ## Display this help
+	# requirement
+	#  - golang: 1.18.x
+	#  - node  : 14.16.x
+	#  - make  : 4.3 (*CAUTION* osx has lower verion of make)
+	#
+	@printf "# Usage:\n"
+	@printf "#   make \033[36m<target>\033[0m\n"
+	@awk 'BEGIN {FS = ":.*##";} /^[a-zA-Z_0-9-]+:.*?##/ { printf "#   \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "#\n# \033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+	@printf "#\n"
+	@printf "# This project used https://github.com/bluemir/0xC0DE as template.\n"
+
+%/.placeholder:
+	@mkdir -p $(dir $@)
+	touch $@

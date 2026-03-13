@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>grim</title>
+		{{ template "snippet/header.html" . }}
+		<style>
+			header {
+				background-color: var(--gray-300);
+			}
+			main [row] {
+				padding: 2rem;
+			}
+			#hero-contents {
+				background-color: var(--blue-gray-600);
+				color: var(--gray-200);
+			}
+		</style>
+	</head>
+	<body layout="one-page">
+		<header>
+			<div row>
+				<global-navigation-bar></global-navigation-bar>
+			</div>
+		</header>
+		<main>
+			<section id="hero-contents">
+				<div row grid>
+					<div col="7">
+						<h1>Hello World!</h1>
+						<p>
+							this is landing page example!
+						</p>
+						<section>
+							<a role="btn" href="/editor">Editor</a>
+							<a role="btn" href="/guide">Guide</a>
+						</section>
+					</div>
+					<c-placeholder col="5"></c-placeholder>
+				</div>
+			</section>
+			<section id="features">
+				<div row grid>
+					<section col="4">
+						<c-icon kind="sync_saved_locally" size="5rem"></c-icon>
+						<h3>Landing Page</h3>
+						<p>A landing page is a standalone web page that potential customers can “land” on when they click through from an email, ad, or other digital location.</p>
+					</section>
+					<section col="4">
+						<c-icon kind="home" size="5rem;"></c-icon>
+						<h3>Default Page</h3>
+						<p>Default layout is used in plain pages. It has simple header and contents.</p>
+					</section>
+					<section col="4">
+						<c-icon kind="settings_applications" size="5rem"></c-icon>
+						<h3>Admin Page</h3>
+						<p>Rich Layout for complicated header, footer and side menu</p>
+					</section>
+				</div>
+			</section>
+		</main>
+	</body>
+</html>

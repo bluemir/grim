@@ -1,0 +1,4 @@
+- [ ] AST 구조체 정의 — Node, Edge, Metadata(@layout, @style, @shape, @text, @edge, @icon) 모델
+- [ ] 파서 구현 — .grim 텍스트 → AST
+- [ ] SVG 렌더러 — AST → SVG 문자열 (우선 rectangle + 텍스트만)
+- [ ] 연결 — grimRender()에서 파서 → 렌더러 호출

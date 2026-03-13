@@ -1,0 +1,82 @@
+package handler
+
+import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/sirupsen/logrus"
+	"golang.org/x/net/websocket"
+)
+
+func Websocket(c *gin.Context) {
+	// consider gin.WrapH
+
+	// c.Header
+
+	websocket.Handler(func(conn *websocket.Conn) {
+		defer conn.Close()
+
+		encoder := json.NewEncoder(conn)
+		decoder := json.NewDecoder(conn)
+
+		for {
+			msg := map[string]any{}
+			if err := decoder.Decode(&msg); err != nil {
+				if err := encoder.Encode(gin.H{"msg": err.Error(), "error": true}); err != nil {
+					logrus.Warnf("websocket encode error: %v", err)
+				}
+				return
+			}
+			logrus.Tracef("websocket msg: %#v", msg)
+		}
+	}).ServeHTTP(c.Writer, c.Request)
+}
+
+func Stream(c *gin.Context) error {
+	req := struct {
+		//Uri struct {}
+		Query struct {
+			Interval time.Duration
+		}
+	}{}
+	if err := c.ShouldBindQuery(req.Query); err != nil {
+		return err
+	}
+
+	// it is oneway... server -> client
+	ticker := time.NewTicker(req.Query.Interval)
+	defer ticker.Stop()
+
+	c.SSEvent("time", time.Now().Format(time.RFC3339Nano))
+	c.Writer.Flush()
+
+	gone := c.Stream(func(w io.Writer) bool {
+		if t, ok := <-ticker.C; ok {
+			c.SSEvent("time", t.Format(time.RFC3339Nano))
+			return true // continue
+		}
+		return false // disconnect
+	})
+	if gone {
+		logrus.Debug("client gone")
+	}
+	// stream = new EventSource("/stream")
+	return nil
+}
+func Push(c *gin.Context) error {
+	pusher := c.Writer.Pusher()
+	if pusher == nil {
+		c.JSON(http.StatusBadRequest, "Not supported")
+		return nil
+	}
+	// use web url address. it request http 1.1 request to itself, and reply it.
+	// https://go.dev/blog/h2push
+	if err := pusher.Push("/static/js/index.js", nil); err != nil {
+		return err
+	}
+	c.JSON(http.StatusOK, "hello")
+	return nil
+}

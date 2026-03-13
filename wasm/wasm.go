@@ -32,6 +32,7 @@ func main() {
 
 	js.Global().Set("grimRender", js.FuncOf(renderGrim))
 	js.Global().Set("grimFormat", js.FuncOf(formatGrim))
+	js.Global().Set("grimSetLayout", js.FuncOf(setLayoutGrim))
 	js.Global().Set("grimShutdown", js.FuncOf(func(this js.Value, args []js.Value) any {
 		quit <- struct{}{} // 채널에 신호 전송
 		return nil
@@ -51,6 +52,20 @@ func formatGrim(this js.Value, args []js.Value) any {
 		// Return original code on parse error (safe fallback)
 		return js.ValueOf(code)
 	}
+	return js.ValueOf(parser.Format(doc))
+}
+
+func setLayoutGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	nodeID := args[1].String()
+	x := int64(args[2].Int())
+	y := int64(args[3].Int())
+
+	doc, err := parser.Parse(code)
+	if err != nil {
+		return js.ValueOf(code)
+	}
+	parser.SetLayout(doc, nodeID, x, y)
 	return js.ValueOf(parser.Format(doc))
 }
 

@@ -231,10 +231,10 @@
                 };
             }
 
-            // data-id 그룹 중 rect를 가진 최상위 노드 그룹 찾기
+            // data-id 그룹 중 shape을 가진 최상위 노드 그룹 찾기
             function findNodeGroup(el) {
                 while (el && el !== svgContainer) {
-                    if (el.tagName === "g" && el.dataset.id && el.querySelector(":scope > rect")) {
+                    if (el.tagName === "g" && el.dataset.id && el.dataset.x !== undefined) {
                         return el;
                     }
                     el = el.parentElement;
@@ -250,15 +250,14 @@
                 const svg = svgContainer.querySelector("svg");
                 if (!svg) return;
 
-                const rect = group.querySelector(":scope > rect");
                 const startPt = getSVGPoint(svg, e.clientX, e.clientY);
 
                 dragState = {
                     group,
                     svg,
                     startSVG: startPt,
-                    origX: parseFloat(rect.getAttribute("x")),
-                    origY: parseFloat(rect.getAttribute("y")),
+                    origX: parseFloat(group.dataset.x),
+                    origY: parseFloat(group.dataset.y),
                 };
 
                 svg.style.cursor = "grabbing";
@@ -289,11 +288,8 @@
                 // 중첩 노드: 부모의 절대 좌표를 빼서 상대 좌표로 변환
                 const parentGroup = group.parentElement.closest("g[data-id]");
                 if (parentGroup) {
-                    const parentRect = parentGroup.querySelector(":scope > rect");
-                    if (parentRect) {
-                        newX -= parseFloat(parentRect.getAttribute("x"));
-                        newY -= parseFloat(parentRect.getAttribute("y"));
-                    }
+                    newX -= parseFloat(parentGroup.dataset.x || 0);
+                    newY -= parseFloat(parentGroup.dataset.y || 0);
                 }
 
                 updateNodeLayout(id, line, newX, newY);

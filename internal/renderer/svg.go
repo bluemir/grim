@@ -60,8 +60,8 @@ func collectAbsoluteNodes(node *LayoutNode, absX, absY float64, nodeMap map[stri
 
 func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
 	b.WriteString(fmt.Sprintf(
-		`%s<g data-id="%s" data-line="%d">`+"\n",
-		indent, escapeXML(node.ID), node.Line,
+		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f">`+"\n",
+		indent, escapeXML(node.ID), node.Line, absX, absY,
 	))
 
 	// Shape

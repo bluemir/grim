@@ -45,11 +45,33 @@
 			);
 			go.run(result.instance);
 
+			// URL에서 데이터 복원
+			const params = new URLSearchParams(window.location.search);
+			const data = params.get("data");
+			if (data) {
+				try {
+					editor.value = decodeURIComponent(escape(atob(data)));
+				} catch (e) {
+					console.warn("Failed to decode data from URL:", e);
+				}
+			}
+
 			// textarea 입력 → WASM 렌더링 → SVG 표시
 			let debounceTimer;
 			function render() {
 				const svg = grimRender(editor.value);
 				preview.innerHTML = svg;
+				updateURL();
+			}
+
+			function updateURL() {
+				const url = new URL(window.location);
+				if (editor.value) {
+					url.searchParams.set("data", btoa(unescape(encodeURIComponent(editor.value))));
+				} else {
+					url.searchParams.delete("data");
+				}
+				history.replaceState(null, "", url);
 			}
 
 			editor.addEventListener("input", () => {

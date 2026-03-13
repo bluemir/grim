@@ -2,6 +2,10 @@
 - [x] 파서 구현 — .grim 텍스트 → AST
 - [x] SVG 렌더러 — AST → SVG 문자열 (우선 rectangle + 텍스트만)
 - [x] 연결 — grimRender()에서 파서 → 렌더러 호출
-- [ ] 이전 내용 보존
+- [x] 이전 내용 보존
 	- url 에 base64 인코딩해서 넣기
+	- `http://localhost:8080/editor?data={base64_encoded_data}`
 - [ ] flow chart 도 적용
+- [ ] 마우스로 사각형 이동
+- [ ] edge 추가
+- [ ] 줌인 아웃

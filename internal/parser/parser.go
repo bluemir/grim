@@ -14,11 +14,12 @@ type Parser struct {
 	stack  []*blockContext
 
 	// Scratch buffers for state communication
-	pathBuf  []string
-	pathLine int
-	edgeFrom []string
-	edgeTo   []string
-	metaLine int
+	pathBuf       []string
+	pathLine      int
+	edgeFrom      []string
+	edgeTo        []string
+	edgeDirection string
+	metaLine      int
 }
 
 // Parse is the public entry point. It tokenizes input and builds an AST.

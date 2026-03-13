@@ -88,6 +88,17 @@ func (stateAfterIdent) Handle(p *Parser, tok Token) (ParseState, error) {
 	switch tok.Type {
 	case TokenArrow:
 		p.edgeFrom = copyPath(p.pathBuf)
+		p.edgeDirection = ""
+		return stateEdgeTarget{}, nil
+
+	case TokenReverseArrow:
+		p.edgeFrom = copyPath(p.pathBuf)
+		p.edgeDirection = "reverse"
+		return stateEdgeTarget{}, nil
+
+	case TokenBiArrow:
+		p.edgeFrom = copyPath(p.pathBuf)
+		p.edgeDirection = "bidirectional"
 		return stateEdgeTarget{}, nil
 
 	case TokenColon:
@@ -159,25 +170,27 @@ type stateAfterEdgeTarget struct{}
 func (stateAfterEdgeTarget) Handle(p *Parser, tok Token) (ParseState, error) {
 	from := copyPath(p.edgeFrom)
 	to := copyPath(p.edgeTo)
+	dir := p.edgeDirection
 
 	switch tok.Type {
 	case TokenColon:
 		return stateAfterColon{
-			line:     p.pathLine,
-			isEdge:   true,
-			edgeFrom: from,
-			edgeTo:   to,
+			line:          p.pathLine,
+			isEdge:        true,
+			edgeFrom:      from,
+			edgeTo:        to,
+			edgeDirection: dir,
 		}, nil
 
 	case TokenLBrace:
 		block := &Block{Line: tok.Line}
-		edge := &EdgeDecl{Line: p.pathLine, From: from, To: to, Block: block}
+		edge := &EdgeDecl{Line: p.pathLine, From: from, To: to, Direction: dir, Block: block}
 		p.addStatement(edge)
 		p.pushBlock(block, nil, from, to)
 		return stateTopLevel{}, nil
 
 	case TokenNewline, TokenEOF, TokenComment:
-		p.addStatement(&EdgeDecl{Line: p.pathLine, From: from, To: to})
+		p.addStatement(&EdgeDecl{Line: p.pathLine, From: from, To: to, Direction: dir})
 		if tok.Type == TokenComment {
 			p.addStatement(&Comment{Line: tok.Line, Text: tok.Value})
 		}
@@ -192,11 +205,12 @@ func (stateAfterEdgeTarget) Handle(p *Parser, tok Token) (ParseState, error) {
 // --- stateAfterColon ---
 // After a colon on a node or edge. Expects String, {, or rest-of-line text.
 type stateAfterColon struct {
-	path     []string
-	line     int
-	isEdge   bool
-	edgeFrom []string
-	edgeTo   []string
+	path          []string
+	line          int
+	isEdge        bool
+	edgeFrom      []string
+	edgeTo        []string
+	edgeDirection string
 }
 
 func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
@@ -204,7 +218,7 @@ func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
 	case TokenString:
 		label := &TextValue{Format: "plain", Value: tok.Value}
 		if s.isEdge {
-			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Label: label})
+			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Direction: s.edgeDirection, Label: label})
 		} else {
 			p.addStatement(&NodeDecl{Line: s.line, Path: s.path, Label: label})
 		}
@@ -213,7 +227,7 @@ func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
 	case TokenLBrace:
 		block := &Block{Line: tok.Line}
 		if s.isEdge {
-			edge := &EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Block: block}
+			edge := &EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Direction: s.edgeDirection, Block: block}
 			p.addStatement(edge)
 			p.pushBlock(block, nil, s.edgeFrom, s.edgeTo)
 		} else {
@@ -226,7 +240,7 @@ func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
 	case TokenNewline, TokenEOF:
 		// colon with nothing after it
 		if s.isEdge {
-			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo})
+			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Direction: s.edgeDirection})
 		} else {
 			p.addStatement(&NodeDecl{Line: s.line, Path: s.path})
 		}
@@ -245,7 +259,7 @@ func (s stateAfterColon) Handle(p *Parser, tok Token) (ParseState, error) {
 		}
 		label := &TextValue{Format: "plain", Value: text}
 		if s.isEdge {
-			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Label: label})
+			p.addStatement(&EdgeDecl{Line: s.line, From: s.edgeFrom, To: s.edgeTo, Direction: s.edgeDirection, Label: label})
 		} else {
 			p.addStatement(&NodeDecl{Line: s.line, Path: s.path, Label: label})
 		}

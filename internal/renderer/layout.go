@@ -52,12 +52,13 @@ type LayoutNode struct {
 
 // LayoutEdge represents a positioned edge ready for SVG rendering.
 type LayoutEdge struct {
-	ID     string
-	Line   int
-	FromID string
-	ToID   string
-	Label  string
-	Style  EdgeStyle
+	ID        string
+	Line      int
+	FromID    string
+	ToID      string
+	Label     string
+	Direction string // "" = forward (->), "reverse" = <-, "bidirectional" = <->
+	Style     EdgeStyle
 }
 
 // LayoutResult contains all positioned elements and canvas dimensions.
@@ -225,11 +226,12 @@ func buildEdge(decl *parser.EdgeDecl) *LayoutEdge {
 	fromID := strings.Join(decl.From, ".")
 	toID := strings.Join(decl.To, ".")
 	edge := &LayoutEdge{
-		ID:     fromID + "--" + toID,
-		Line:   decl.Line,
-		FromID: fromID,
-		ToID:   toID,
-		Style:  defaultEdgeStyle,
+		ID:        fromID + "--" + toID,
+		Line:      decl.Line,
+		FromID:    fromID,
+		ToID:      toID,
+		Direction: decl.Direction,
+		Style:     defaultEdgeStyle,
 	}
 
 	if decl.Label != nil {

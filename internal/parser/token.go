@@ -15,7 +15,9 @@ const (
 	TokenIdent
 	TokenDot
 	TokenColon
-	TokenArrow // ->
+	TokenArrow        // ->
+	TokenReverseArrow // <-
+	TokenBiArrow      // <->
 	TokenLBrace
 	TokenRBrace
 	TokenLBracket
@@ -30,23 +32,25 @@ const (
 )
 
 var tokenNames = map[TokenType]string{
-	TokenEOF:      "EOF",
-	TokenNewline:  "Newline",
-	TokenIdent:    "Ident",
-	TokenDot:      "Dot",
-	TokenColon:    "Colon",
-	TokenArrow:    "Arrow",
-	TokenLBrace:   "LBrace",
-	TokenRBrace:   "RBrace",
-	TokenLBracket: "LBracket",
-	TokenRBracket: "RBracket",
-	TokenAt:       "At",
-	TokenString:   "String",
-	TokenNumber:   "Number",
-	TokenComma:    "Comma",
-	TokenComment:  "Comment",
-	TokenHash:     "Hash",
-	TokenRawBlock: "RawBlock",
+	TokenEOF:          "EOF",
+	TokenNewline:      "Newline",
+	TokenIdent:        "Ident",
+	TokenDot:          "Dot",
+	TokenColon:        "Colon",
+	TokenArrow:        "Arrow",
+	TokenReverseArrow: "ReverseArrow",
+	TokenBiArrow:      "BiArrow",
+	TokenLBrace:       "LBrace",
+	TokenRBrace:       "RBrace",
+	TokenLBracket:     "LBracket",
+	TokenRBracket:     "RBracket",
+	TokenAt:           "At",
+	TokenString:       "String",
+	TokenNumber:       "Number",
+	TokenComma:        "Comma",
+	TokenComment:      "Comment",
+	TokenHash:         "Hash",
+	TokenRawBlock:     "RawBlock",
 }
 
 func (t TokenType) String() string {
@@ -212,6 +216,21 @@ func (lexDefault) Handle(l *Lexer, ch rune) (LexState, error) {
 		l.advance()
 		l.advance()
 		l.emit(TokenArrow, "->")
+		return lexDefault{}, nil
+
+	case ch == '<' && l.peekAt(1) == '-' && l.peekAt(2) == '>':
+		l.markStart()
+		l.advance()
+		l.advance()
+		l.advance()
+		l.emit(TokenBiArrow, "<->")
+		return lexDefault{}, nil
+
+	case ch == '<' && l.peekAt(1) == '-':
+		l.markStart()
+		l.advance()
+		l.advance()
+		l.emit(TokenReverseArrow, "<-")
 		return lexDefault{}, nil
 
 	case ch == '{' && l.peekAt(1) == '|':

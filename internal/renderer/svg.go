@@ -16,10 +16,13 @@ func RenderSVG(layout *LayoutResult) string {
 		layout.Width, layout.Height,
 	))
 
-	// Defs: arrowhead marker
+	// Defs: arrowhead markers
 	b.WriteString(`  <defs>` + "\n")
 	b.WriteString(`    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">` + "\n")
 	b.WriteString(`      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>` + "\n")
+	b.WriteString(`    </marker>` + "\n")
+	b.WriteString(`    <marker id="arrowhead-start" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">` + "\n")
+	b.WriteString(`      <polygon points="10 0, 0 3.5, 10 7" fill="#333"/>` + "\n")
 	b.WriteString(`    </marker>` + "\n")
 	b.WriteString(`  </defs>` + "\n")
 
@@ -258,9 +261,19 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 		`  <g data-id="%s" data-line="%d">`+"\n",
 		escapeXML(edge.ID), edge.Line,
 	))
+	var markerStart, markerEnd string
+	switch edge.Direction {
+	case "reverse":
+		markerStart = ` marker-start="url(#arrowhead-start)"`
+	case "bidirectional":
+		markerStart = ` marker-start="url(#arrowhead-start)"`
+		markerEnd = ` marker-end="url(#arrowhead)"`
+	default: // "" or "forward"
+		markerEnd = ` marker-end="url(#arrowhead)"`
+	}
 	b.WriteString(fmt.Sprintf(
-		`    <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f" marker-end="url(#arrowhead)"/>`+"\n",
-		x1, y1, x2, y2, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth,
+		`    <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
+		x1, y1, x2, y2, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
 	))
 
 	// Edge label at midpoint

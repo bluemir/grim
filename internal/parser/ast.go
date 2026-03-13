@@ -24,11 +24,12 @@ func (n *NodeDecl) GetLine() int { return n.Line }
 
 // EdgeDecl declares an edge between two nodes.
 type EdgeDecl struct {
-	Line  int
-	From  []string   // source path
-	To    []string   // target path
-	Label *TextValue // shorthand label
-	Block *Block     // optional block with metadata/children
+	Line      int
+	From      []string   // source path
+	To        []string   // target path
+	Direction string     // "" or "forward" = ->, "reverse" = <-, "bidirectional" = <->
+	Label     *TextValue // shorthand label
+	Block     *Block     // optional block with metadata/children
 }
 
 func (*EdgeDecl) statementNode() {}

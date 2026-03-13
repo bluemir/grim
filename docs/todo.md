@@ -5,15 +5,35 @@
 - [x] 이전 내용 보존
 	- url 에 base64 인코딩해서 넣기
 	- `http://localhost:8080/editor?data={base64_encoded_data}`
-- [ ] flow chart 도 적용
-- [ ] 마우스로 사각형 이동
+- [ ] flow chart도 적용
+- [x] 마우스로 사각형 이동
 - [ ] edge 추가
 - [ ] 줌인 아웃
 - [ ] 화면 스크롤
+	- wasd
 - [ ] 자동 레이아웃 추가
+	- Sugiyama-style graph drawing?
+	- 그러면서 12 grid 에 맞게끔?
 - [x] 중첩 요소
 - [x] 선언이 안되어 있는 node를 마우스로 옯기면 이동
 - [x] 암시적 노드가 드래그 안됨
-- [ ] 24px 이나 16px grid 에 스냅
-- [ ] 코드 편집 창에서 cmd+s, ctrl+s 막기
+- [ ] 24px 이나 16px 격자 grid 에 스냅
+	- alt를 누르면 무시
+- [x] 코드 편집 창에서 cmd+s, ctrl+s 막기
 - [ ] 엣지의 라벨만 옯기는 기능
+- [x] bug: @style {fill: blue-gray-200, font-color: white} 이렇게 지정했음에도, 배경색이 검은색으로 나옴
+- [ ] 선택후 상하좌우키로 미세조정
+- [ ] Shape 렌더링 — circle, diamond, cloud, cylinder, hexagon, parallelogram, rounded
+- [ ] @icon 렌더링 — SVG `<image>` 사용
+- [ ] Markdown 텍스트 렌더링 — goldmark → foreignObject
+- [ ] LaTeX 텍스트 렌더링 — KaTeX → foreignObject
+- [ ] 엣지 waypoints — Ctrl+Click으로 꺾임점 추가/제거
+- [ ] 엣지 anchor 지정 — top, bottom, left, right, center
+- [ ] 엣지 gap 커스터마이징
+- [ ] 엣지 히트박스 — 투명한 두꺼운 path 겹치기
+- [ ] 엣지 스타일 — stroke-dash, arrow 종류(triangle, diamond, none)
+- [ ] 노드 스타일 — stroke-dash, shadow, opacity, border-radius
+- [x] Material Design 색상을 렌더러에 통합
+- [ ] SVG/PNG 다운로드 export
+- [ ] 공유 URL — /view?data={base64} 읽기 전용 뷰
+- [ ] 에러 시 마지막 유효 SVG 유지 + 에러 표시

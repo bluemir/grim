@@ -477,10 +477,10 @@ func toFloat(v interface{}) float64 {
 
 func applyNodeStyle(style *NodeStyle, values map[string]interface{}) {
 	if v, ok := values["fill"]; ok {
-		style.Fill = toString(v)
+		style.Fill = resolveColor(toString(v))
 	}
 	if v, ok := values["stroke"]; ok {
-		style.Stroke = toString(v)
+		style.Stroke = resolveColor(toString(v))
 	}
 	if v, ok := values["stroke-width"]; ok {
 		style.StrokeWidth = toFloat(v)
@@ -489,13 +489,13 @@ func applyNodeStyle(style *NodeStyle, values map[string]interface{}) {
 		style.FontSize = toFloat(v)
 	}
 	if v, ok := values["font-color"]; ok {
-		style.FontColor = toString(v)
+		style.FontColor = resolveColor(toString(v))
 	}
 }
 
 func applyEdgeStyle(style *EdgeStyle, values map[string]interface{}) {
 	if v, ok := values["stroke"]; ok {
-		style.Stroke = toString(v)
+		style.Stroke = resolveColor(toString(v))
 	}
 	if v, ok := values["stroke-width"]; ok {
 		style.StrokeWidth = toFloat(v)

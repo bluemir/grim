@@ -223,10 +223,12 @@
 
             // 마우스 좌표를 SVG viewBox 좌표로 변환
             function getSVGPoint(svg, clientX, clientY) {
-                const pt = svg.createSVGPoint();
-                pt.x = clientX;
-                pt.y = clientY;
-                return pt.matrixTransform(svg.getScreenCTM().inverse());
+                const rect = svg.getBoundingClientRect();
+                const vb = svg.viewBox.baseVal;
+                return {
+                    x: (clientX - rect.left) * (vb.width / rect.width),
+                    y: (clientY - rect.top)  * (vb.height / rect.height),
+                };
             }
 
             // data-id 그룹 중 rect를 가진 최상위 노드 그룹 찾기

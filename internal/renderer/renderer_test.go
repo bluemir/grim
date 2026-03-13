@@ -347,6 +347,28 @@ func TestRenderNestedImplicitNodes(t *testing.T) {
 	}
 }
 
+func TestUnfixedNodesStartBelowFixedNodes(t *testing.T) {
+	doc, _ := parser.Parse(`
+fixed {
+  @layout {x: 0, y: 200}
+}
+unfixed`)
+	layout := BuildLayout(doc)
+	var fixedNode, unfixedNode *LayoutNode
+	for _, n := range layout.Nodes {
+		if n.ID == "fixed" {
+			fixedNode = n
+		}
+		if n.ID == "unfixed" {
+			unfixedNode = n
+		}
+	}
+	fixedBottom := fixedNode.Y + fixedNode.H
+	if unfixedNode.Y < fixedBottom {
+		t.Errorf("unfixed Y=%.1f should be >= fixed bottom %.1f", unfixedNode.Y, fixedBottom)
+	}
+}
+
 func TestRenderSVGHasViewBox(t *testing.T) {
 	doc, err := parser.Parse("A")
 	if err != nil {

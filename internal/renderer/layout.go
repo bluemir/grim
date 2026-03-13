@@ -149,7 +149,19 @@ func BuildLayout(doc *parser.Document) *LayoutResult {
 	}
 
 	// Phase 4: layout unfixed top-level nodes using grid (with correct sizes)
-	layoutGrid(unfixedNodes, gridTotalWidth)
+	var fixedMaxBottom float64
+	for _, node := range result.Nodes {
+		if node.Fixed {
+			if bottom := node.Y + node.H; bottom > fixedMaxBottom {
+				fixedMaxBottom = bottom
+			}
+		}
+	}
+	var unfixedStartY float64
+	if fixedMaxBottom > 0 {
+		unfixedStartY = fixedMaxBottom + nodePadY
+	}
+	layoutGrid(unfixedNodes, gridTotalWidth, unfixedStartY)
 
 	// Phase 5: compute canvas bounding box
 	result.Width, result.Height = computeBounds(result.Nodes)
@@ -286,7 +298,7 @@ func computeChildBounds(children []*LayoutNode) (float64, float64) {
 }
 
 // layoutGrid places unfixed nodes in a 12-column grid with variable row heights.
-func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
+func layoutGrid(nodes []*LayoutNode, totalWidth float64, startY float64) {
 	if len(nodes) == 0 {
 		return
 	}
@@ -362,7 +374,7 @@ func layoutGrid(nodes []*LayoutNode, totalWidth float64) {
 		for r := 0; r < p.row; r++ {
 			y += rowHeights[r] + nodePadY
 		}
-		p.node.Y = y
+		p.node.Y = startY + y
 	}
 }
 
@@ -389,7 +401,7 @@ func layoutChildren(parent *LayoutNode) {
 	if interiorW < defaultNodeW {
 		interiorW = defaultNodeW
 	}
-	layoutGrid(unfixed, interiorW)
+	layoutGrid(unfixed, interiorW, 0)
 
 	// Offset all children relative to parent's content area
 	for _, child := range parent.Children {

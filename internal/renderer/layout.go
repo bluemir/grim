@@ -45,6 +45,7 @@ type LayoutNode struct {
 	X, Y     float64
 	W, H     float64
 	Fixed    bool
+	Shape    string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
 	Style    NodeStyle
 	Children []*LayoutNode
 }
@@ -106,30 +107,38 @@ func BuildLayout(doc *parser.Document) *LayoutResult {
 		}
 	}
 
+	// Phase 1.5: reparent top-level nodes with dotted IDs under their proper parent
+	reparentedSet := make(map[string]bool)
+	for _, node := range result.Nodes {
+		if dotIdx := strings.LastIndex(node.ID, "."); dotIdx != -1 {
+			parentID := node.ID[:dotIdx]
+			parent := ensureNode(parentID, nodeMap, result, &unfixedNodes)
+			parent.Children = append(parent.Children, node)
+			reparentedSet[node.ID] = true
+		}
+	}
+	if len(reparentedSet) > 0 {
+		filtered := result.Nodes[:0]
+		for _, n := range result.Nodes {
+			if !reparentedSet[n.ID] {
+				filtered = append(filtered, n)
+			}
+		}
+		result.Nodes = filtered
+
+		filteredUnfixed := unfixedNodes[:0]
+		for _, n := range unfixedNodes {
+			if !reparentedSet[n.ID] {
+				filteredUnfixed = append(filteredUnfixed, n)
+			}
+		}
+		unfixedNodes = filteredUnfixed
+	}
+
 	// Phase 2: resolve implicit nodes (referenced in edges but not declared)
 	for _, edge := range result.Edges {
 		for _, id := range []string{edge.FromID, edge.ToID} {
-			if _, ok := nodeMap[id]; !ok {
-				node := &LayoutNode{
-					ID:    id,
-					Label: lastSegment(id),
-					Style: defaultNodeStyle,
-				}
-				node.W, node.H = computeNodeSize(node.Label, nil)
-				// If the ID contains ".", it belongs to a parent node
-				if dotIdx := strings.LastIndex(id, "."); dotIdx != -1 {
-					parentID := id[:dotIdx]
-					if parent, ok := nodeMap[parentID]; ok {
-						parent.Children = append(parent.Children, node)
-						nodeMap[id] = node
-						continue
-					}
-				}
-				// Fallback: add as top-level node
-				result.Nodes = append(result.Nodes, node)
-				nodeMap[id] = node
-				unfixedNodes = append(unfixedNodes, node)
-			}
+			ensureNode(id, nodeMap, result, &unfixedNodes)
 		}
 	}
 
@@ -178,6 +187,8 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 				applyNodeStyle(&node.Style, m.Values)
 			case *parser.TextMeta:
 				node.Label = m.Value
+			case *parser.ShapeMeta:
+				node.Shape = m.Value
 			}
 		}
 
@@ -445,6 +456,33 @@ func registerNodes(node *LayoutNode, nodeMap map[string]*LayoutNode) {
 	for _, child := range node.Children {
 		registerNodes(child, nodeMap)
 	}
+}
+
+// ensureNode guarantees a node with the given ID exists in nodeMap,
+// recursively creating intermediate parent nodes as needed.
+func ensureNode(id string, nodeMap map[string]*LayoutNode, result *LayoutResult, unfixedNodes *[]*LayoutNode) *LayoutNode {
+	if node, ok := nodeMap[id]; ok {
+		return node
+	}
+
+	node := &LayoutNode{
+		ID:    id,
+		Label: lastSegment(id),
+		Style: defaultNodeStyle,
+	}
+	node.W, node.H = computeNodeSize(node.Label, nil)
+	nodeMap[id] = node
+
+	if dotIdx := strings.LastIndex(id, "."); dotIdx != -1 {
+		parentID := id[:dotIdx]
+		parent := ensureNode(parentID, nodeMap, result, unfixedNodes)
+		parent.Children = append(parent.Children, node)
+	} else {
+		result.Nodes = append(result.Nodes, node)
+		*unfixedNodes = append(*unfixedNodes, node)
+	}
+
+	return node
 }
 
 func lastSegment(id string) string {

@@ -16,6 +16,11 @@ var (
 )
 
 func init() {
+	if !crypto.SHA512.Available() {
+		// WASM 환경 등에서는 SHA512가 없을 수 있음
+		Signature = "unavailable"
+		return
+	}
 	hashed := crypto.SHA512.New()
 
 	_, _ = io.WriteString(hashed, AppName)

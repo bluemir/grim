@@ -23,7 +23,7 @@
 - [ ] 엣지의 라벨만 옯기는 기능
 - [x] bug: @style {fill: blue-gray-200, font-color: white} 이렇게 지정했음에도, 배경색이 검은색으로 나옴
 - [ ] 선택후 상하좌우키로 미세조정
-- [ ] Shape 렌더링 — circle, diamond, cloud, cylinder, hexagon, parallelogram, rounded
+- [x] Shape 렌더링 — circle, diamond, cloud, cylinder, hexagon, parallelogram, rounded
 - [ ] @icon 렌더링 — SVG `<image>` 사용
 - [ ] Markdown 텍스트 렌더링 — goldmark → foreignObject
 - [ ] LaTeX 텍스트 렌더링 — KaTeX → foreignObject
@@ -37,3 +37,12 @@
 - [ ] SVG/PNG 다운로드 export
 - [ ] 공유 URL — /view?data={base64} 읽기 전용 뷰
 - [ ] 에러 시 마지막 유효 SVG 유지 + 에러 표시
+- [ ] enhanced textarea 에서 실행 취소/재실행 올바르게 동작하게 하기
+- [ ] node 크기를 마우스롤 조절할수 있도록
+- [ ] node 모양을 마우스로 바꿀수 있도록
+	- 마우스 오버시 조그마한 dropdown 버튼이 나오고 클릭해서 바꾸기
+- [ ] bug: diamond 모양은 드래그로 위치를 바꿀수 없음
+- [ ] fixed 가 아닌 것은 fixed 와 거리를 두고 배치
+	- fixed 중 가장 아래좌표에서 부터 배치 시작
+	- 겹치지 않게 하기 위함.
+

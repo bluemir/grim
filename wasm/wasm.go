@@ -5,6 +5,7 @@ package main
 import (
 	"syscall/js"
 
+	"github.com/bluemir/grim/internal/buildinfo"
 	"github.com/bluemir/grim/internal/parser"
 	"github.com/bluemir/grim/internal/renderer"
 	"github.com/sirupsen/logrus"
@@ -21,6 +22,12 @@ func main() {
 	// log.SetFormatter(&logrus.JSONFormatter{})
 
 	logrus.SetLevel(logrus.DebugLevel)
+	logrus.WithFields(logrus.Fields{
+		"app":       buildinfo.AppName,
+		"version":   buildinfo.Version,
+		"buildTime": buildinfo.BuildTime,
+	}).Info("Grim WASM 엔진이 로드되었습니다.")
+
 	quit := make(chan struct{}, 0)
 
 	js.Global().Set("grimRender", js.FuncOf(renderGrim))

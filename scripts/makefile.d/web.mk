@@ -24,11 +24,10 @@ build/$(APP_NAME): assets/src/js/index.js
 ## resolve dependency
 OPTIONAL_CLEAN += node_modules
 
-build/$(APP_NAME):            package.json package-lock.json
-build/$(APP_NAME)-$(VERSION): package.json package-lock.json
+build/$(APP_NAME):            node_modules/.package-lock.json
+build/$(APP_NAME)-$(VERSION): node_modules/.package-lock.json
 
-package-lock.json: package.json | runtime/tools/npm
-	@mkdir -p $(dir $@)
+node_modules/.package-lock.json: package.json package-lock.json | runtime/tools/npm
 	npm install
 
 runtime/tools/npm:
@@ -50,11 +49,11 @@ assets/bundle/bm.js/bm.module.js: assets/vendor/bm.module.js assets/vendor/bm.js
 	@mkdir -p $(dir $@)
 	esbuild $< --bundle --format=esm --outfile=$@
 
-assets/bundle/lit-html/lit-html.js: assets/vendor/lit-html.js package.json package-lock.json | runtime/tools/esbuild runtime/tools/npm
+assets/bundle/lit-html/lit-html.js: assets/vendor/lit-html.js node_modules/.package-lock.json | runtime/tools/esbuild
 	@mkdir -p $(dir $@)
 	esbuild $< --bundle --format=esm --outfile=$@
 
-assets/bundle/fonts/fonts.css: assets/vendor/fonts.css package.json package-lock.json | runtime/tools/esbuild runtime/tools/npm
+assets/bundle/fonts/fonts.css: assets/vendor/fonts.css node_modules/.package-lock.json | runtime/tools/esbuild
 	@mkdir -p $(dir $@)
 	esbuild $< --bundle --outdir=assets/bundle/fonts --loader:.woff2=file --asset-names=[name]
 

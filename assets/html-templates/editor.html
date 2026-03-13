@@ -71,7 +71,7 @@
                         submit-shortcut
                     ></textarea>
                 </div>
-                <div col="6" id="svg-preview">
+                <div col="6" id="svg-preview" tabindex="0">
                     <div class="zoom-controls">
                         <button id="zoom-out" title="Zoom out">−</button>
                         <span id="zoom-level">100%</span>
@@ -161,6 +161,8 @@
 
             document.getElementById("zoom-reset").addEventListener("click", () => {
                 zoomTo(1);
+                preview.scrollTop = 0;
+                preview.scrollLeft = 0;
             });
 
             document.getElementById("zoom-fit").addEventListener("click", () => {
@@ -174,14 +176,48 @@
                 zoomTo(fit);
             });
 
-            // Ctrl/Cmd + 마우스 휠로 줌
+            // Shift + 마우스 휠로 줌
             preview.addEventListener("wheel", (e) => {
-                if (e.ctrlKey || e.metaKey) {
+                if (e.shiftKey) {
                     e.preventDefault();
                     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
                     zoomTo(zoomScale + delta);
                 }
             }, { passive: false });
+
+            // --- WASD 부드러운 스크롤 ---
+
+            const SCROLL_SPEED = 5;
+            const pressedKeys = new Set();
+            let scrollRAF = null;
+
+            const WASD_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
+
+            window.addEventListener("keydown", (e) => {
+                const tag = document.activeElement?.tagName;
+                if (tag === "TEXTAREA" || tag === "INPUT") return;
+                if (WASD_CODES.has(e.code) && !pressedKeys.has(e.code)) {
+                    pressedKeys.add(e.code);
+                    e.preventDefault();
+                    if (!scrollRAF) scrollLoop();
+                }
+            });
+
+            window.addEventListener("keyup", (e) => {
+                pressedKeys.delete(e.code);
+                if (pressedKeys.size === 0 && scrollRAF) {
+                    cancelAnimationFrame(scrollRAF);
+                    scrollRAF = null;
+                }
+            });
+
+            function scrollLoop() {
+                if (pressedKeys.has("KeyW")) preview.scrollTop -= SCROLL_SPEED;
+                if (pressedKeys.has("KeyS")) preview.scrollTop += SCROLL_SPEED;
+                if (pressedKeys.has("KeyA")) preview.scrollLeft -= SCROLL_SPEED;
+                if (pressedKeys.has("KeyD")) preview.scrollLeft += SCROLL_SPEED;
+                scrollRAF = requestAnimationFrame(scrollLoop);
+            }
 
             // --- 드래그로 노드 이동 ---
 

@@ -53,7 +53,7 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
 	- Core Engine (Go -> WASM): * 텍스트 파싱, AST(추상 구문 트리) 생성, 그리드 자동 정렬 계산, 최종 SVG 문자열 생성 담당.
 	- 브라우저 내에서 C/C++ 급의 성능으로 동작하며 서버 요청(API) 불필요.
 - Frontend View (Vanilla JS / Lit-html):
-	- 가벼운 <textarea> 에디터와 SVG DOM 제어.
+	- 가벼운 `<textarea>` 에디터와 SVG DOM 제어.
 	- 이벤트 위임(Event Delegation)을 통해 SVG의 상호작용(드래그, 클릭) 처리.
 - Data Binding (SVG 커스텀 속성):
 	- WASM이 뱉어내는 SVG 태그에 data-id, data-line(텍스트 에디터의 줄 번호) 등을 심어, JS가 텍스트 코드를 업데이트할 때 정규식 탐색 없이 즉시 해당 줄을 찾아 수정(O(1) 성능).
@@ -62,7 +62,7 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
 ## UX / UI 상호작용 설계 (Interactions)
 
 - 60fps 드래그 앤 드롭: * 드래그 중에는 WASM 호출 없이 JS가 DOM(SVG transform)만 직접 제어하여 부드러운 조작감 제공.
-	- 마우스 드롭(Mouse Up) 시점에만 JS가 <textarea>의 특정 줄을 업데이트하고 WASM 동기화 수행.
+	- 마우스 드롭(Mouse Up) 시점에만 JS가 `<textarea>`의 특정 줄을 업데이트하고 WASM 동기화 수행.
 - 에디터 커서 튐 방지: 코드 업데이트 전후로 selectionStart/End를 캡처하여 유저의 타이핑 경험 보호.
 - 투명 히트박스(Hitbox): 얇은 선(Edge)을 쉽게 클릭할 수 있도록 눈에 보이지 않는 두꺼운 <path>를 겹쳐 렌더링.
 	- wasm 에서는 렌더하지 않지만, JS에서 두꺼운 path 를 겹치치도록 추가
@@ -93,8 +93,8 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
   - `@text hello world` — 따옴표 생략 가능, 줄 끝(또는 `#` 주석)까지가 텍스트
   - `@text "hello world"` — 따옴표 명시 (`#`이나 선행/후행 공백 포함 시 사용)
   - `@text[plain] hello` — plain 타입 명시 (기본값과 동일)
-  - `@text[markdown] { ... }` — 마크다운
-  - `@text[latex] { ... }` — LaTeX
+  - `@text[markdown] {| ... |}` — 마크다운
+  - `@text[latex] {| ... |}` — LaTeX
 - 모든 노드에서 모든 텍스트 타입 사용 가능
 - 렌더링 방식 (D2와 동일한 접근):
   - plain → 순수 SVG `<text>` 요소 (최대 호환성)
@@ -185,19 +185,19 @@ network: {
 frontend -> database: Read
 
 explanation: {
-	@text[markdown] {
+	@text[markdown] {|
 		# I can do headers
 		- lists
 		- lists
 
 		And other normal markdown stuff
-	}
+	|}
 }
 
 formula: {
-	@text[latex] {
+	@text[latex] {|
 		\lim_{h \rightarrow 0 } \frac{f(x+h)-f(x)}{h}
-	}
+	|}
 }
 
 icon-node: {

@@ -5,6 +5,8 @@ package main
 import (
 	"syscall/js"
 
+	"github.com/bluemir/grim/internal/parser"
+	"github.com/bluemir/grim/internal/renderer"
 	"github.com/sirupsen/logrus"
 )
 
@@ -35,12 +37,22 @@ func main() {
 }
 
 func renderGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+
 	logrus.WithFields(logrus.Fields{
 		"action": "parse",
-		"length": len(args[0].String()),
+		"length": len(code),
 	}).Info("다이어그램 렌더링을 시작합니다.")
 
-	// TODO render svg
+	doc, err := parser.Parse(code)
+	if err != nil {
+		logrus.WithError(err).Warn("파싱 에러 (부분 결과 사용)")
+	}
 
-	return js.ValueOf("<svg></svg>")
+	logrus.WithFields(logrus.Fields{
+		"statements": len(doc.Statements),
+	}).Debug("파싱 완료")
+
+	svg := renderer.Render(doc)
+	return js.ValueOf(svg)
 }

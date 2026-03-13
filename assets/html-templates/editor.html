@@ -79,6 +79,115 @@
 				debounceTimer = setTimeout(render, 300);
 			});
 
+			// --- 드래그로 노드 이동 ---
+
+			// 마우스 좌표를 SVG viewBox 좌표로 변환
+			function getSVGPoint(svg, clientX, clientY) {
+				const pt = svg.createSVGPoint();
+				pt.x = clientX;
+				pt.y = clientY;
+				return pt.matrixTransform(svg.getScreenCTM().inverse());
+			}
+
+			// data-id 그룹 중 rect를 가진 최상위 노드 그룹 찾기
+			function findNodeGroup(el) {
+				while (el && el !== preview) {
+					if (el.tagName === "g" && el.dataset.id && el.querySelector(":scope > rect")) {
+						return el;
+					}
+					el = el.parentElement;
+				}
+				return null;
+			}
+
+			let dragState = null;
+
+			preview.addEventListener("mousedown", (e) => {
+				const group = findNodeGroup(e.target);
+				if (!group) return;
+				const svg = preview.querySelector("svg");
+				if (!svg) return;
+
+				const rect = group.querySelector(":scope > rect");
+				const startPt = getSVGPoint(svg, e.clientX, e.clientY);
+
+				dragState = {
+					group,
+					svg,
+					startSVG: startPt,
+					origX: parseFloat(rect.getAttribute("x")),
+					origY: parseFloat(rect.getAttribute("y")),
+				};
+
+				svg.style.cursor = "grabbing";
+				e.preventDefault();
+			});
+
+			window.addEventListener("mousemove", (e) => {
+				if (!dragState) return;
+				const pt = getSVGPoint(dragState.svg, e.clientX, e.clientY);
+				const dx = pt.x - dragState.startSVG.x;
+				const dy = pt.y - dragState.startSVG.y;
+				dragState.group.setAttribute("transform", `translate(${dx}, ${dy})`);
+			});
+
+			window.addEventListener("mouseup", (e) => {
+				if (!dragState) return;
+				const { group, svg, startSVG, origX, origY } = dragState;
+				dragState = null;
+				svg.style.cursor = "";
+
+				const pt = getSVGPoint(svg, e.clientX, e.clientY);
+				const newX = Math.round(origX + pt.x - startSVG.x);
+				const newY = Math.round(origY + pt.y - startSVG.y);
+
+				const id = group.dataset.id;
+				const line = parseInt(group.dataset.line, 10);
+
+				updateNodeLayout(id, line, newX, newY);
+				render();
+			});
+
+			// 노드 위 커서 스타일
+			preview.addEventListener("mouseover", (e) => {
+				if (dragState) return;
+				const group = findNodeGroup(e.target);
+				const svg = preview.querySelector("svg");
+				if (svg) svg.style.cursor = group ? "grab" : "";
+			});
+
+			// 소스 텍스트에 @layout 반영
+			function updateNodeLayout(id, line, newX, newY) {
+				const lines = editor.value.split("\n");
+				const lineIdx = line - 1;
+				if (lineIdx < 0 || lineIdx >= lines.length) return;
+
+				const layoutStr = `@layout { x: ${newX}, y: ${newY} }`;
+
+				// Case 1: 이미 @layout이 있는 경우
+				for (let i = lineIdx; i < lines.length; i++) {
+					if (/^\s*@layout\s*\{/.test(lines[i])) {
+						lines[i] = lines[i].replace(/@layout\s*\{[^}]*\}/, layoutStr);
+						editor.value = lines.join("\n");
+						return;
+					}
+					if (i > lineIdx && /^\S/.test(lines[i])) break;
+				}
+
+				// Case 2: 블록이 있는 경우 — { 다음 줄에 삽입
+				for (let i = lineIdx; i < Math.min(lineIdx + 3, lines.length); i++) {
+					if (lines[i].includes("{")) {
+						lines.splice(i + 1, 0, `\t${layoutStr}`);
+						editor.value = lines.join("\n");
+						return;
+					}
+				}
+
+				// Case 3: 블록 없는 노드 — 줄 끝에 블록 추가
+				lines[lineIdx] = lines[lineIdx].trimEnd() + ` { ${layoutStr} }`;
+				editor.value = lines.join("\n");
+			}
+
 			// 초기 렌더링
 			render();
 		</script>

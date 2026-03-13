@@ -66,6 +66,7 @@ body[layout=one-page] {
 
 	& > header {
 		position: sticky;
+		top: 0;
 	}
 
 	& > main {

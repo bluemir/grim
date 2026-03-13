@@ -127,13 +127,15 @@ class EnhancedTextarea extends HTMLTextAreaElement{
 		this.on("keydown", this.#submitShortcut)
 	}
 	async #submitShortcut(evt) {
-		if (!(evt.code == "KeyS" && evt.ctrlKey)) {
+		if (!(evt.code == "KeyS" && (evt.ctrlKey || evt.metaKey))) {
 			return // just skip
 		}
 		evt.preventDefault();
 
-		// evt.target.closest("form").submit();
 		let $form = this.closest("form");
+		if (!$form) {
+			return // no form, just prevent default browser save
+		}
 
 		let data = new FormData($form);
 		let res = await $.request($form.attr("method")||$form.method, $form.action||location.pathname, {body: data});

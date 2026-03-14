@@ -1,6 +1,10 @@
 package renderer
 
-import "math"
+import (
+	"math"
+	"strconv"
+	"strings"
+)
 
 // IntersectLineRect finds the point where a line from (cx, cy) to (tx, ty)
 // crosses the boundary of a rectangle defined by top-left (rx, ry) with size (rw, rh).
@@ -194,6 +198,49 @@ func intersectLinePolygon(cx, cy, tx, ty float64, pts [][2]float64) (float64, fl
 	}
 
 	return bestX, bestY
+}
+
+// ParseAnchorAngle parses an anchor string and returns (angle in radians, isCenter).
+// Angle 0 = top (12 o'clock), clockwise. isCenter=true means use the node center directly.
+// Formats: "90" (degrees), "H3" (clock hour), "H1:30" (clock hour:min),
+// "top"/"right"/"bottom"/"left"/"center", "" or "-" (no override).
+func ParseAnchorAngle(anchor string) (float64, bool) {
+	anchor = strings.TrimSpace(anchor)
+	switch anchor {
+	case "", "-":
+		return 0, false
+	case "center":
+		return 0, true
+	case "top":
+		return 0, false
+	case "right":
+		return math.Pi / 2, false
+	case "bottom":
+		return math.Pi, false
+	case "left":
+		return 3 * math.Pi / 2, false
+	}
+
+	// "HN" or "HN:MM" clock notation
+	if strings.HasPrefix(anchor, "H") || strings.HasPrefix(anchor, "h") {
+		clock := anchor[1:]
+		var hours, mins float64
+		if idx := strings.Index(clock, ":"); idx >= 0 {
+			hours, _ = strconv.ParseFloat(clock[:idx], 64)
+			mins, _ = strconv.ParseFloat(clock[idx+1:], 64)
+		} else {
+			hours, _ = strconv.ParseFloat(clock, 64)
+		}
+		deg := ((hours + mins/60) / 12) * 360
+		return deg * math.Pi / 180, false
+	}
+
+	// Plain numeric degrees
+	if v, err := strconv.ParseFloat(anchor, 64); err == nil {
+		return v * math.Pi / 180, false
+	}
+
+	return 0, false
 }
 
 // ApplyGap moves a point along the direction from (ox, oy) to (px, py) by gap pixels

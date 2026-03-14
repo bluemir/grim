@@ -338,8 +338,30 @@
 
             let dragState = null;
             let waypointDragState = null;
+            let anchorDragState = null;
 
             svgContainer.addEventListener("mousedown", (e) => {
+                // Anchor handle drag (from/to connection point)
+                const anchorFromEl = e.target.closest("[data-anchor-from]");
+                const anchorToEl   = e.target.closest("[data-anchor-to]");
+                const anchorEl = anchorFromEl || anchorToEl;
+                if (anchorEl) {
+                    const edgeGroup = anchorEl.closest("g[data-type='edge']");
+                    if (!edgeGroup) return;
+                    const svg = svgContainer.querySelector("svg");
+                    if (!svg) return;
+                    anchorDragState = {
+                        svg, edgeGroup, anchorEl,
+                        isFrom: !!anchorFromEl,
+                        line: parseInt(edgeGroup.dataset.line),
+                        nodeId: anchorFromEl ? edgeGroup.dataset.fromId : edgeGroup.dataset.toId,
+                        startSVG: getSVGPoint(svg, e.clientX, e.clientY),
+                    };
+                    svg.style.cursor = "crosshair";
+                    e.preventDefault(); e.stopPropagation();
+                    return;
+                }
+
                 // Waypoint handle drag
                 const waypointEl = e.target.closest("[data-waypoint-idx]");
                 if (waypointEl) {
@@ -390,6 +412,13 @@
             });
 
             window.addEventListener("mousemove", (e) => {
+                if (anchorDragState) {
+                    const pt = getSVGPoint(anchorDragState.svg, e.clientX, e.clientY);
+                    anchorDragState.anchorEl.setAttribute("cx", pt.x.toFixed(1));
+                    anchorDragState.anchorEl.setAttribute("cy", pt.y.toFixed(1));
+                    return;
+                }
+
                 if (waypointDragState) {
                     const pt = getSVGPoint(waypointDragState.svg, e.clientX, e.clientY);
                     const newX = snapToGrid(waypointDragState.origX + (pt.x - waypointDragState.startSVG.x), e.altKey);
@@ -424,6 +453,33 @@
             });
 
             window.addEventListener("mouseup", (e) => {
+                if (anchorDragState) {
+                    const { svg, edgeGroup, isFrom, line, nodeId } = anchorDragState;
+                    anchorDragState = null;
+                    svg.style.cursor = "";
+
+                    const pt = getSVGPoint(svg, e.clientX, e.clientY);
+                    const nodeGroup = svgContainer.querySelector(`g[data-id="${CSS.escape(nodeId)}"]`);
+                    if (!nodeGroup) { render(); return; }
+
+                    const nx = parseFloat(nodeGroup.dataset.x);
+                    const ny = parseFloat(nodeGroup.dataset.y);
+                    const nw = parseFloat(nodeGroup.dataset.w);
+                    const nh = parseFloat(nodeGroup.dataset.h);
+                    const cx = nx + nw / 2, cy = ny + nh / 2;
+                    const dx = pt.x - cx, dy = pt.y - cy;
+                    const deg = Math.round(((Math.atan2(dx, -dy) * 180 / Math.PI) + 360) % 360);
+
+                    const currentFrom = edgeGroup.dataset.fromAnchor || '-';
+                    const currentTo   = edgeGroup.dataset.toAnchor   || '-';
+                    const newFrom = isFrom ? String(deg) : currentFrom;
+                    const newTo   = isFrom ? currentTo  : String(deg);
+
+                    editor.value = grimSetEdgeAnchors(editor.value, line, newFrom, newTo);
+                    render();
+                    return;
+                }
+
                 if (waypointDragState) {
                     const { svg, line, idx, startSVG, origX, origY, wps } = waypointDragState;
                     waypointDragState = null;
@@ -466,7 +522,7 @@
 
             // 노드 위 커서 스타일
             svgContainer.addEventListener("mouseover", (e) => {
-                if (dragState || waypointDragState) return;
+                if (dragState || waypointDragState || anchorDragState) return;
                 const group = findNodeGroup(e.target);
                 const svg = svgContainer.querySelector("svg");
                 if (svg) svg.style.cursor = group ? "grab" : "";

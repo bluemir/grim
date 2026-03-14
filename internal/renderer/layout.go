@@ -1,6 +1,7 @@
 package renderer
 
 import (
+	"fmt"
 	"math"
 	"strings"
 
@@ -61,14 +62,16 @@ type LayoutNode struct {
 
 // LayoutEdge represents a positioned edge ready for SVG rendering.
 type LayoutEdge struct {
-	ID        string
-	Line      int
-	FromID    string
-	ToID      string
-	Label     string
-	Direction string // "" = forward (->), "reverse" = <-, "bidirectional" = <->
-	Style     EdgeStyle
-	Waypoints []Point // optional bend points
+	ID         string
+	Line       int
+	FromID     string
+	ToID       string
+	Label      string
+	Direction  string // "" = forward (->), "reverse" = <-, "bidirectional" = <->
+	Style      EdgeStyle
+	Waypoints  []Point // optional bend points
+	FromAnchor string  // e.g. "90", "H3", "H1:30", "top", "" = auto
+	ToAnchor   string
 }
 
 // LayoutResult contains all positioned elements and canvas dimensions.
@@ -295,6 +298,16 @@ func buildEdge(decl *parser.EdgeDecl) *LayoutEdge {
 									Y: floatVal(pt, "y", 0),
 								})
 							}
+						}
+					}
+				}
+				if raw, ok := m.Values["anchors"]; ok {
+					if arr, ok := raw.([]interface{}); ok {
+						if len(arr) >= 1 {
+							edge.FromAnchor = fmt.Sprint(arr[0])
+						}
+						if len(arr) >= 2 {
+							edge.ToAnchor = fmt.Sprint(arr[1])
 						}
 					}
 				}

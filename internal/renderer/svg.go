@@ -2,6 +2,7 @@ package renderer
 
 import (
 	"fmt"
+	"math"
 	"strings"
 )
 
@@ -24,6 +25,10 @@ func RenderSVG(layout *LayoutResult) string {
 	b.WriteString(`    <marker id="arrowhead-start" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">` + "\n")
 	b.WriteString(`      <polygon points="10 0, 0 3.5, 10 7" fill="#333"/>` + "\n")
 	b.WriteString(`    </marker>` + "\n")
+	b.WriteString(`    <style>` + "\n")
+	b.WriteString(`      [data-anchor-handle] { opacity: 0; transition: opacity 0.1s; }` + "\n")
+	b.WriteString(`      g[data-type="edge"]:hover [data-anchor-handle] { opacity: 1; }` + "\n")
+	b.WriteString(`    </style>` + "\n")
 	b.WriteString(`  </defs>` + "\n")
 
 	// Build a flat node map for edge endpoint lookup (with absolute positions)
@@ -60,8 +65,8 @@ func collectAbsoluteNodes(node *LayoutNode, absX, absY float64, nodeMap map[stri
 
 func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
 	b.WriteString(fmt.Sprintf(
-		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f">`+"\n",
-		indent, escapeXML(node.ID), node.Line, absX, absY,
+		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f" data-w="%.1f" data-h="%.1f">`+"\n",
+		indent, escapeXML(node.ID), node.Line, absX, absY, node.W, node.H,
 	))
 
 	// Stack shadow layers — drawn before main shape so main shape renders on top
@@ -333,14 +338,46 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 		dstDirY = last.Y
 	}
 
-	// Intersection with source boundary
-	x1, y1 := IntersectLineShape(fromCX, fromCY, srcDirX, srcDirY, from.X, from.Y, from.W, from.H, from.Shape)
-	// Intersection with target boundary
-	x2, y2 := IntersectLineShape(toCX, toCY, dstDirX, dstDirY, to.X, to.Y, to.W, to.H, to.Shape)
+	// Anchor overrides: replace direction vectors with fixed-angle directions.
+	// Multiply by a large constant so the target point is always beyond the node
+	// boundary (IntersectLine* requires t ∈ [0,1] along the (center→target) ray).
+	const anchorDirLen = 10000.0
+	var fromAnchorCenter, toAnchorCenter bool
+	if edge.FromAnchor != "" && edge.FromAnchor != "-" {
+		angle, isCenter := ParseAnchorAngle(edge.FromAnchor)
+		if isCenter {
+			fromAnchorCenter = true
+		} else {
+			srcDirX = fromCX + math.Sin(angle)*anchorDirLen
+			srcDirY = fromCY - math.Cos(angle)*anchorDirLen
+		}
+	}
+	if edge.ToAnchor != "" && edge.ToAnchor != "-" {
+		angle, isCenter := ParseAnchorAngle(edge.ToAnchor)
+		if isCenter {
+			toAnchorCenter = true
+		} else {
+			dstDirX = toCX + math.Sin(angle)*anchorDirLen
+			dstDirY = toCY - math.Cos(angle)*anchorDirLen
+		}
+	}
 
-	// Apply gap
-	x1, y1 = ApplyGap(x1, y1, fromCX, fromCY, defaultGap)
-	x2, y2 = ApplyGap(x2, y2, toCX, toCY, defaultGap)
+	// Intersection with source boundary (or center if anchor == "center")
+	var x1, y1 float64
+	if fromAnchorCenter {
+		x1, y1 = fromCX, fromCY
+	} else {
+		x1, y1 = IntersectLineShape(fromCX, fromCY, srcDirX, srcDirY, from.X, from.Y, from.W, from.H, from.Shape)
+		x1, y1 = ApplyGap(x1, y1, fromCX, fromCY, defaultGap)
+	}
+	// Intersection with target boundary (or center if anchor == "center")
+	var x2, y2 float64
+	if toAnchorCenter {
+		x2, y2 = toCX, toCY
+	} else {
+		x2, y2 = IntersectLineShape(toCX, toCY, dstDirX, dstDirY, to.X, to.Y, to.W, to.H, to.Shape)
+		x2, y2 = ApplyGap(x2, y2, toCX, toCY, defaultGap)
+	}
 
 	// Build points list: start, waypoints, end
 	type pt struct{ x, y float64 }
@@ -372,8 +409,9 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	}
 
 	b.WriteString(fmt.Sprintf(
-		`  <g data-id="%s" data-line="%d" data-type="edge" data-waypoints='%s'>`+"\n",
+		`  <g data-id="%s" data-line="%d" data-type="edge" data-waypoints='%s' data-from-anchor='%s' data-to-anchor='%s' data-from-id='%s' data-to-id='%s'>`+"\n",
 		escapeXML(edge.ID), edge.Line, waypointsAttr(edge.Waypoints),
+		edge.FromAnchor, edge.ToAnchor, escapeXML(edge.FromID), escapeXML(edge.ToID),
 	))
 
 	// Invisible hit-target polyline for easy click detection
@@ -395,6 +433,16 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 			i, wp.X, wp.Y,
 		))
 	}
+
+	// Anchor handle circles (from=orange, to=green); hidden until edge hover via CSS
+	b.WriteString(fmt.Sprintf(
+		`    <circle data-anchor-from="" cx="%.1f" cy="%.1f" r="5" fill="#e8801a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
+		x1, y1,
+	))
+	b.WriteString(fmt.Sprintf(
+		`    <circle data-anchor-to="" cx="%.1f" cy="%.1f" r="5" fill="#2a9a2a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
+		x2, y2,
+	))
 
 	// Edge label at midpoint of points list
 	if edge.Label != "" {

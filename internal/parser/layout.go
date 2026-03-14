@@ -139,6 +139,35 @@ func SetEdgeWaypoints(doc *Document, line int, waypoints []interface{}) {
 	})
 }
 
+// SetEdgeAnchors sets the from/to anchor angles for the edge at the given source line.
+// The document is modified in place; call Format(doc) to get updated source.
+func SetEdgeAnchors(doc *Document, line int, fromAnchor, toAnchor string) {
+	edge := findEdgeByLine(doc.Statements, line)
+	if edge == nil {
+		return
+	}
+	if edge.Block == nil {
+		edge.Block = &Block{}
+	}
+	// Inline label (: "text") is invalid alongside a block — promote to @text metadata.
+	if edge.Label != nil {
+		tm := &TextMeta{Format: edge.Label.Format, Value: edge.Label.Value}
+		edge.Block.Metadata = append([]Metadata{tm}, edge.Block.Metadata...)
+		edge.Label = nil
+	}
+	anchors := []interface{}{fromAnchor, toAnchor}
+	for _, m := range edge.Block.Metadata {
+		if em, ok := m.(*EdgeMeta); ok {
+			em.Values["anchors"] = anchors
+			return
+		}
+	}
+	edge.Block.Metadata = append(edge.Block.Metadata, &EdgeMeta{
+		Line:   line,
+		Values: map[string]interface{}{"anchors": anchors},
+	})
+}
+
 // findEdgeByLine recursively searches for an EdgeDecl at the given line number.
 func findEdgeByLine(stmts []Statement, line int) *EdgeDecl {
 	for _, stmt := range stmts {

@@ -34,6 +34,7 @@ func main() {
 	js.Global().Set("grimFormat", js.FuncOf(formatGrim))
 	js.Global().Set("grimSetLayout", js.FuncOf(setLayoutGrim))
 	js.Global().Set("grimSetEdgeWaypoints", js.FuncOf(setEdgeWaypointsGrim))
+	js.Global().Set("grimSetEdgeAnchors", js.FuncOf(setEdgeAnchorsGrim))
 	js.Global().Set("grimShutdown", js.FuncOf(func(this js.Value, args []js.Value) any {
 		quit <- struct{}{} // 채널에 신호 전송
 		return nil
@@ -89,6 +90,19 @@ func setEdgeWaypointsGrim(this js.Value, args []js.Value) any {
 		}
 	}
 	parser.SetEdgeWaypoints(doc, line, waypoints)
+	return js.ValueOf(parser.Format(doc))
+}
+
+func setEdgeAnchorsGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	line := args[1].Int()
+	fromAnchor := args[2].String()
+	toAnchor := args[3].String()
+	doc, err := parser.Parse(code)
+	if err != nil {
+		return js.ValueOf(code)
+	}
+	parser.SetEdgeAnchors(doc, line, fromAnchor, toAnchor)
 	return js.ValueOf(parser.Format(doc))
 }
 

@@ -121,6 +121,12 @@ func SetEdgeWaypoints(doc *Document, line int, waypoints []interface{}) {
 	if edge.Block == nil {
 		edge.Block = &Block{}
 	}
+	// Inline label (: "text") is invalid alongside a block — promote to @text metadata.
+	if edge.Label != nil {
+		tm := &TextMeta{Format: edge.Label.Format, Value: edge.Label.Value}
+		edge.Block.Metadata = append([]Metadata{tm}, edge.Block.Metadata...)
+		edge.Label = nil
+	}
 	for _, m := range edge.Block.Metadata {
 		if em, ok := m.(*EdgeMeta); ok {
 			em.Values["waypoints"] = waypoints

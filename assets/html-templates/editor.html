@@ -310,6 +310,12 @@
                 };
             }
 
+            const GRID_SIZE = 16;
+            function snapToGrid(value, altKey) {
+                if (altKey) return Math.round(value);
+                return Math.round(value / GRID_SIZE) * GRID_SIZE;
+            }
+
             // data-id 그룹 중 shape을 가진 최상위 노드 그룹 찾기
             function findNodeGroup(el) {
                 while (el && el !== svgContainer) {
@@ -359,12 +365,15 @@
 
                 const startPt = getSVGPoint(svg, e.clientX, e.clientY);
 
+                const parentGroup = group.parentElement.closest("g[data-id]");
                 dragState = {
                     group,
                     svg,
                     startSVG: startPt,
                     origX: parseFloat(group.dataset.x),
                     origY: parseFloat(group.dataset.y),
+                    parentX: parentGroup ? parseFloat(parentGroup.dataset.x || 0) : null,
+                    parentY: parentGroup ? parseFloat(parentGroup.dataset.y || 0) : null,
                 };
 
                 svg.style.cursor = "grabbing";
@@ -374,8 +383,8 @@
             window.addEventListener("mousemove", (e) => {
                 if (waypointDragState) {
                     const pt = getSVGPoint(waypointDragState.svg, e.clientX, e.clientY);
-                    const newX = waypointDragState.origX + (pt.x - waypointDragState.startSVG.x);
-                    const newY = waypointDragState.origY + (pt.y - waypointDragState.startSVG.y);
+                    const newX = snapToGrid(waypointDragState.origX + (pt.x - waypointDragState.startSVG.x), e.altKey);
+                    const newY = snapToGrid(waypointDragState.origY + (pt.y - waypointDragState.startSVG.y), e.altKey);
                     // Move the circle handle
                     waypointDragState.waypointEl.setAttribute("cx", newX);
                     waypointDragState.waypointEl.setAttribute("cy", newY);
@@ -390,9 +399,19 @@
 
                 if (!dragState) return;
                 const pt = getSVGPoint(dragState.svg, e.clientX, e.clientY);
-                const dx = pt.x - dragState.startSVG.x;
-                const dy = pt.y - dragState.startSVG.y;
-                dragState.group.setAttribute("transform", `translate(${dx}, ${dy})`);
+                const rawAbsX = dragState.origX + (pt.x - dragState.startSVG.x);
+                const rawAbsY = dragState.origY + (pt.y - dragState.startSVG.y);
+                let snapDx, snapDy;
+                if (dragState.parentX !== null) {
+                    const snappedRelX = snapToGrid(rawAbsX - dragState.parentX, e.altKey);
+                    const snappedRelY = snapToGrid(rawAbsY - dragState.parentY, e.altKey);
+                    snapDx = snappedRelX + dragState.parentX - dragState.origX;
+                    snapDy = snappedRelY + dragState.parentY - dragState.origY;
+                } else {
+                    snapDx = snapToGrid(rawAbsX, e.altKey) - dragState.origX;
+                    snapDy = snapToGrid(rawAbsY, e.altKey) - dragState.origY;
+                }
+                dragState.group.setAttribute("transform", `translate(${snapDx}, ${snapDy})`);
             });
 
             window.addEventListener("mouseup", (e) => {
@@ -401,8 +420,8 @@
                     waypointDragState = null;
                     svg.style.cursor = "";
                     const pt = getSVGPoint(svg, e.clientX, e.clientY);
-                    const newX = Math.round(origX + (pt.x - startSVG.x));
-                    const newY = Math.round(origY + (pt.y - startSVG.y));
+                    const newX = snapToGrid(origX + (pt.x - startSVG.x), e.altKey);
+                    const newY = snapToGrid(origY + (pt.y - startSVG.y), e.altKey);
                     // 실제로 이동한 경우에만 render() — 단순 클릭이면 DOM을 유지해
                     // click 이벤트(Alt+Click 제거)가 살아있는 DOM에서 발생할 수 있게 함
                     if (Math.hypot(newX - origX, newY - origY) > 3) {
@@ -414,21 +433,22 @@
                 }
 
                 if (!dragState) return;
-                const { group, svg, startSVG, origX, origY } = dragState;
+                const { group, svg, startSVG, origX, origY, parentX, parentY } = dragState;
                 dragState = null;
                 svg.style.cursor = "";
 
                 const pt = getSVGPoint(svg, e.clientX, e.clientY);
-                let newX = Math.round(origX + pt.x - startSVG.x);
-                let newY = Math.round(origY + pt.y - startSVG.y);
+                const rawX = origX + pt.x - startSVG.x;
+                const rawY = origY + pt.y - startSVG.y;
 
                 const id = group.dataset.id;
-
-                // 중첩 노드: 부모의 절대 좌표를 빼서 상대 좌표로 변환
-                const parentGroup = group.parentElement.closest("g[data-id]");
-                if (parentGroup) {
-                    newX -= parseFloat(parentGroup.dataset.x || 0);
-                    newY -= parseFloat(parentGroup.dataset.y || 0);
+                let newX, newY;
+                if (parentX !== null) {
+                    newX = snapToGrid(rawX - parentX, e.altKey);
+                    newY = snapToGrid(rawY - parentY, e.altKey);
+                } else {
+                    newX = snapToGrid(rawX, e.altKey);
+                    newY = snapToGrid(rawY, e.altKey);
                 }
 
                 editor.value = grimSetLayout(editor.value, id, newX, newY);

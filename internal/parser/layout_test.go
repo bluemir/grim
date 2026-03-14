@@ -134,6 +134,29 @@ func TestSetLayout_ImplicitNested_BothAbsent(t *testing.T) {
 	}
 }
 
+func TestSetEdgeWaypoints_InlineLabel(t *testing.T) {
+	// Edge with inline label must have label promoted to @text when block is added.
+	src := `a -> b: "my label"` + "\n"
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetEdgeWaypoints(doc, 1, []interface{}{map[string]interface{}{"x": 100, "y": 200}})
+	result := Format(doc)
+	// Inline label must be gone
+	if strings.Contains(result, `-> b: "`) {
+		t.Errorf("inline label must be promoted to @text, got:\n%s", result)
+	}
+	// @text must be present
+	if !strings.Contains(result, `@text "my label"`) {
+		t.Errorf("expected @text directive with label, got:\n%s", result)
+	}
+	// @edge waypoints must be present
+	if !strings.Contains(result, "@edge") {
+		t.Errorf("expected @edge in output, got:\n%s", result)
+	}
+}
+
 func TestSetLayout_FlatDotted(t *testing.T) {
 	// flat dotted declaration: parent.child { }
 	src := "parent.child {\n}\n"

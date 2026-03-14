@@ -111,6 +111,47 @@ func updateLayoutMeta(node *NodeDecl, x, y int64) {
 	node.Block.Metadata = append([]Metadata{lm}, node.Block.Metadata...)
 }
 
+// SetEdgeWaypoints sets the waypoints for the edge at the given source line.
+// The document is modified in place; call Format(doc) to get updated source.
+func SetEdgeWaypoints(doc *Document, line int, waypoints []interface{}) {
+	edge := findEdgeByLine(doc.Statements, line)
+	if edge == nil {
+		return
+	}
+	if edge.Block == nil {
+		edge.Block = &Block{}
+	}
+	for _, m := range edge.Block.Metadata {
+		if em, ok := m.(*EdgeMeta); ok {
+			em.Values["waypoints"] = waypoints
+			return
+		}
+	}
+	edge.Block.Metadata = append(edge.Block.Metadata, &EdgeMeta{
+		Line:   line,
+		Values: map[string]interface{}{"waypoints": waypoints},
+	})
+}
+
+// findEdgeByLine recursively searches for an EdgeDecl at the given line number.
+func findEdgeByLine(stmts []Statement, line int) *EdgeDecl {
+	for _, stmt := range stmts {
+		switch s := stmt.(type) {
+		case *EdgeDecl:
+			if s.Line == line {
+				return s
+			}
+		case *NodeDecl:
+			if s.Block != nil {
+				if found := findEdgeByLine(s.Block.Children, line); found != nil {
+					return found
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func slicesEqual(a, b []string) bool {
 	if len(a) != len(b) {
 		return false

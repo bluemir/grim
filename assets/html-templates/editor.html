@@ -12,6 +12,7 @@
                 height: 100%;
             }
 
+
             body {
                 display: flex;
                 flex-direction: column;
@@ -321,8 +322,36 @@
             }
 
             let dragState = null;
+            let waypointDragState = null;
 
             svgContainer.addEventListener("mousedown", (e) => {
+                // Waypoint handle drag
+                const waypointEl = e.target.closest("[data-waypoint-idx]");
+                if (waypointEl) {
+                    const edgeGroup = waypointEl.closest("g[data-type='edge']");
+                    if (!edgeGroup) return;
+                    const svg = svgContainer.querySelector("svg");
+                    if (!svg) return;
+                    const idx = parseInt(waypointEl.dataset.waypointIdx);
+                    const wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
+                    waypointDragState = {
+                        svg,
+                        edgeGroup,
+                        waypointEl,
+                        idx,
+                        line: parseInt(edgeGroup.dataset.line),
+                        startSVG: getSVGPoint(svg, e.clientX, e.clientY),
+                        origX: wps[idx].x,
+                        origY: wps[idx].y,
+                        wps,
+                    };
+                    svg.style.cursor = "grabbing";
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return;
+                }
+
+                // Node drag
                 const group = findNodeGroup(e.target);
                 if (!group) return;
                 const svg = svgContainer.querySelector("svg");
@@ -343,6 +372,22 @@
             });
 
             window.addEventListener("mousemove", (e) => {
+                if (waypointDragState) {
+                    const pt = getSVGPoint(waypointDragState.svg, e.clientX, e.clientY);
+                    const newX = waypointDragState.origX + (pt.x - waypointDragState.startSVG.x);
+                    const newY = waypointDragState.origY + (pt.y - waypointDragState.startSVG.y);
+                    // Move the circle handle
+                    waypointDragState.waypointEl.setAttribute("cx", newX);
+                    waypointDragState.waypointEl.setAttribute("cy", newY);
+                    // Update all polylines in the edge group
+                    waypointDragState.edgeGroup.querySelectorAll("polyline").forEach(pl => {
+                        const parts = pl.getAttribute("points").trim().split(/\s+/);
+                        parts[waypointDragState.idx + 1] = `${newX.toFixed(1)},${newY.toFixed(1)}`;
+                        pl.setAttribute("points", parts.join(" "));
+                    });
+                    return;
+                }
+
                 if (!dragState) return;
                 const pt = getSVGPoint(dragState.svg, e.clientX, e.clientY);
                 const dx = pt.x - dragState.startSVG.x;
@@ -351,6 +396,23 @@
             });
 
             window.addEventListener("mouseup", (e) => {
+                if (waypointDragState) {
+                    const { svg, line, idx, startSVG, origX, origY, wps } = waypointDragState;
+                    waypointDragState = null;
+                    svg.style.cursor = "";
+                    const pt = getSVGPoint(svg, e.clientX, e.clientY);
+                    const newX = Math.round(origX + (pt.x - startSVG.x));
+                    const newY = Math.round(origY + (pt.y - startSVG.y));
+                    // 실제로 이동한 경우에만 render() — 단순 클릭이면 DOM을 유지해
+                    // click 이벤트(Alt+Click 제거)가 살아있는 DOM에서 발생할 수 있게 함
+                    if (Math.hypot(newX - origX, newY - origY) > 3) {
+                        wps[idx] = { x: newX, y: newY };
+                        editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
+                        render();
+                    }
+                    return;
+                }
+
                 if (!dragState) return;
                 const { group, svg, startSVG, origX, origY } = dragState;
                 dragState = null;
@@ -375,11 +437,67 @@
 
             // 노드 위 커서 스타일
             svgContainer.addEventListener("mouseover", (e) => {
-                if (dragState) return;
+                if (dragState || waypointDragState) return;
                 const group = findNodeGroup(e.target);
                 const svg = svgContainer.querySelector("svg");
                 if (svg) svg.style.cursor = group ? "grab" : "";
             });
+
+            // --- Alt+Click: Add/remove edge waypoints ---
+
+            svgContainer.addEventListener("click", (e) => {
+                if (!e.altKey) return;
+                e.preventDefault();
+
+                const svg = svgContainer.querySelector("svg");
+                if (!svg) return;
+                const pt = getSVGPoint(svg, e.clientX, e.clientY);
+
+                // Case 1: Ctrl+Click on a waypoint circle → remove it
+                const waypointEl = e.target.closest("[data-waypoint-idx]");
+                if (waypointEl) {
+                    const edgeGroup = waypointEl.closest("g[data-type='edge']");
+                    if (!edgeGroup) return;
+                    const line = parseInt(edgeGroup.dataset.line);
+                    const idx = parseInt(waypointEl.dataset.waypointIdx);
+                    let wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
+                    wps.splice(idx, 1);
+                    editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
+                    render();
+                    return;
+                }
+
+                // Case 2: Ctrl+Click on an edge → add waypoint at click position
+                const edgeGroup = e.target.closest("g[data-type='edge']");
+                if (!edgeGroup) return;
+                const line = parseInt(edgeGroup.dataset.line);
+                let wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
+
+                const insertIdx = findInsertIndex(edgeGroup, wps, pt);
+                wps.splice(insertIdx, 0, { x: Math.round(pt.x), y: Math.round(pt.y) });
+                editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
+                render();
+            });
+
+            function findInsertIndex(edgeGroup, wps, pt) {
+                const polyline = edgeGroup.querySelector("polyline");
+                if (!polyline) return wps.length;
+                const pts = Array.from(polyline.points);
+                if (pts.length < 2) return 0;
+                let bestDist = Infinity, bestSeg = 0;
+                for (let i = 0; i < pts.length - 1; i++) {
+                    const d = distToSegment(pt, pts[i], pts[i + 1]);
+                    if (d < bestDist) { bestDist = d; bestSeg = i; }
+                }
+                return bestSeg;
+            }
+
+            function distToSegment(p, a, b) {
+                const dx = b.x - a.x, dy = b.y - a.y;
+                if (dx === 0 && dy === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+                const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy)));
+                return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+            }
 
             // 초기 렌더링
             render();

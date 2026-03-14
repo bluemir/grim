@@ -8,8 +8,8 @@
 - [ ] flow chart도 적용
 - [x] 마우스로 사각형 이동
 - [ ] edge 추가
-- [ ] 줌인 아웃
-- [ ] 화면 스크롤
+- [x] 줌인 아웃
+- [x] 화면 스크롤
 	- wasd
 - [ ] 자동 레이아웃 추가
 	- Sugiyama-style graph drawing?
@@ -19,6 +19,8 @@
 - [x] 암시적 노드가 드래그 안됨
 - [ ] 24px 이나 16px 격자 grid 에 스냅
 	- alt를 누르면 무시
+	- js 단에만 적용하면 될듯
+	- block 내부에는 블록 내부에서 다시 그리드가 있는것 처럼
 - [x] 코드 편집 창에서 cmd+s, ctrl+s 막기
 - [ ] 엣지의 라벨만 옯기는 기능
 - [x] bug: @style {fill: blue-gray-200, font-color: white} 이렇게 지정했음에도, 배경색이 검은색으로 나옴
@@ -27,7 +29,7 @@
 - [ ] @icon 렌더링 — SVG `<image>` 사용
 - [ ] Markdown 텍스트 렌더링 — goldmark → foreignObject
 - [ ] LaTeX 텍스트 렌더링 — KaTeX → foreignObject
-- [ ] 엣지 waypoints — Ctrl+Click으로 꺾임점 추가/제거
+- [x] 엣지 waypoints — Ctrl+Click으로 꺾임점 추가/제거
 - [ ] 엣지 anchor 지정 — top, bottom, left, right, center
 - [ ] 엣지 gap 커스터마이징
 - [ ] 엣지 히트박스 — 투명한 두꺼운 path 겹치기

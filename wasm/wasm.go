@@ -33,6 +33,7 @@ func main() {
 	js.Global().Set("grimRender", js.FuncOf(renderGrim))
 	js.Global().Set("grimFormat", js.FuncOf(formatGrim))
 	js.Global().Set("grimSetLayout", js.FuncOf(setLayoutGrim))
+	js.Global().Set("grimSetEdgeWaypoints", js.FuncOf(setEdgeWaypointsGrim))
 	js.Global().Set("grimShutdown", js.FuncOf(func(this js.Value, args []js.Value) any {
 		quit <- struct{}{} // 채널에 신호 전송
 		return nil
@@ -66,6 +67,28 @@ func setLayoutGrim(this js.Value, args []js.Value) any {
 		return js.ValueOf(code)
 	}
 	parser.SetLayout(doc, nodeID, x, y)
+	return js.ValueOf(parser.Format(doc))
+}
+
+func setEdgeWaypointsGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	line := args[1].Int()
+	waypointsVal := args[2] // JS array of {x, y}
+
+	doc, err := parser.Parse(code)
+	if err != nil {
+		return js.ValueOf(code)
+	}
+
+	waypoints := make([]interface{}, waypointsVal.Length())
+	for i := range waypoints {
+		item := waypointsVal.Index(i)
+		waypoints[i] = map[string]interface{}{
+			"x": item.Get("x").Float(),
+			"y": item.Get("y").Float(),
+		}
+	}
+	parser.SetEdgeWaypoints(doc, line, waypoints)
 	return js.ValueOf(parser.Format(doc))
 }
 

@@ -42,6 +42,9 @@ type EdgeStyle struct {
 	FontSize    float64
 }
 
+// Point represents an x/y coordinate for waypoint routing.
+type Point struct{ X, Y float64 }
+
 // LayoutNode represents a positioned node ready for SVG rendering.
 type LayoutNode struct {
 	ID       string
@@ -65,6 +68,7 @@ type LayoutEdge struct {
 	Label     string
 	Direction string // "" = forward (->), "reverse" = <-, "bidirectional" = <->
 	Style     EdgeStyle
+	Waypoints []Point // optional bend points
 }
 
 // LayoutResult contains all positioned elements and canvas dimensions.
@@ -281,6 +285,19 @@ func buildEdge(decl *parser.EdgeDecl) *LayoutEdge {
 				edge.Label = m.Value
 			case *parser.StyleMeta:
 				applyEdgeStyle(&edge.Style, m.Values)
+			case *parser.EdgeMeta:
+				if raw, ok := m.Values["waypoints"]; ok {
+					if arr, ok := raw.([]interface{}); ok {
+						for _, item := range arr {
+							if pt, ok := item.(map[string]interface{}); ok {
+								edge.Waypoints = append(edge.Waypoints, Point{
+									X: floatVal(pt, "x", 0),
+									Y: floatVal(pt, "y", 0),
+								})
+							}
+						}
+					}
+				}
 			}
 		}
 	}

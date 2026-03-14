@@ -322,19 +322,44 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	toCX := to.X + to.W/2
 	toCY := to.Y + to.H/2
 
-	// Intersection with source boundary (line from source center toward target center)
-	x1, y1 := IntersectLineShape(fromCX, fromCY, toCX, toCY, from.X, from.Y, from.W, from.H, from.Shape)
-	// Intersection with target boundary (line from target center toward source center)
-	x2, y2 := IntersectLineShape(toCX, toCY, fromCX, fromCY, to.X, to.Y, to.W, to.H, to.Shape)
+	// Direction for intersection: use first/last waypoint if available
+	srcDirX, srcDirY := toCX, toCY
+	dstDirX, dstDirY := fromCX, fromCY
+	if len(edge.Waypoints) > 0 {
+		srcDirX = edge.Waypoints[0].X
+		srcDirY = edge.Waypoints[0].Y
+		last := edge.Waypoints[len(edge.Waypoints)-1]
+		dstDirX = last.X
+		dstDirY = last.Y
+	}
+
+	// Intersection with source boundary
+	x1, y1 := IntersectLineShape(fromCX, fromCY, srcDirX, srcDirY, from.X, from.Y, from.W, from.H, from.Shape)
+	// Intersection with target boundary
+	x2, y2 := IntersectLineShape(toCX, toCY, dstDirX, dstDirY, to.X, to.Y, to.W, to.H, to.Shape)
 
 	// Apply gap
 	x1, y1 = ApplyGap(x1, y1, fromCX, fromCY, defaultGap)
 	x2, y2 = ApplyGap(x2, y2, toCX, toCY, defaultGap)
 
-	b.WriteString(fmt.Sprintf(
-		`  <g data-id="%s" data-line="%d">`+"\n",
-		escapeXML(edge.ID), edge.Line,
-	))
+	// Build points list: start, waypoints, end
+	type pt struct{ x, y float64 }
+	pts := []pt{{x1, y1}}
+	for _, wp := range edge.Waypoints {
+		pts = append(pts, pt{wp.X, wp.Y})
+	}
+	pts = append(pts, pt{x2, y2})
+
+	// Build SVG points attribute string
+	var ptsBuf strings.Builder
+	for i, p := range pts {
+		if i > 0 {
+			ptsBuf.WriteString(" ")
+		}
+		ptsBuf.WriteString(fmt.Sprintf("%.1f,%.1f", p.x, p.y))
+	}
+	pointsStr := ptsBuf.String()
+
 	var markerStart, markerEnd string
 	switch edge.Direction {
 	case "reverse":
@@ -345,15 +370,44 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	default: // "" or "forward"
 		markerEnd = ` marker-end="url(#arrowhead)"`
 	}
+
 	b.WriteString(fmt.Sprintf(
-		`    <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
-		x1, y1, x2, y2, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
+		`  <g data-id="%s" data-line="%d" data-type="edge" data-waypoints='%s'>`+"\n",
+		escapeXML(edge.ID), edge.Line, waypointsAttr(edge.Waypoints),
 	))
 
-	// Edge label at midpoint
+	// Invisible hit-target polyline for easy click detection
+	b.WriteString(fmt.Sprintf(
+		`    <polyline points="%s" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/>`+"\n",
+		pointsStr,
+	))
+
+	// Visible polyline
+	b.WriteString(fmt.Sprintf(
+		`    <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
+		pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
+	))
+
+	// Waypoint handle circles
+	for i, wp := range edge.Waypoints {
+		b.WriteString(fmt.Sprintf(
+			`    <circle data-waypoint-idx="%d" cx="%.1f" cy="%.1f" r="4" fill="#4a90e2" stroke="white" stroke-width="1.5" style="cursor:pointer"/>`+"\n",
+			i, wp.X, wp.Y,
+		))
+	}
+
+	// Edge label at midpoint of points list
 	if edge.Label != "" {
-		midX := (x1 + x2) / 2
-		midY := (y1+y2)/2 - 6 // slight offset above line
+		midIdx := len(pts) / 2
+		var midX, midY float64
+		if len(pts)%2 == 0 {
+			midX = (pts[midIdx-1].x + pts[midIdx].x) / 2
+			midY = (pts[midIdx-1].y + pts[midIdx].y) / 2
+		} else {
+			midX = pts[midIdx].x
+			midY = pts[midIdx].y
+		}
+		midY -= 6 // slight offset above line
 		b.WriteString(fmt.Sprintf(
 			`    <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
 			midX, midY, edge.Style.FontSize, escapeXML(edge.Style.Stroke), escapeXML(edge.Label),
@@ -361,6 +415,22 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	}
 
 	b.WriteString("  </g>\n")
+}
+
+func waypointsAttr(wps []Point) string {
+	if len(wps) == 0 {
+		return "[]"
+	}
+	var sb strings.Builder
+	sb.WriteString("[")
+	for i, wp := range wps {
+		if i > 0 {
+			sb.WriteString(",")
+		}
+		sb.WriteString(fmt.Sprintf(`{"x":%.1f,"y":%.1f}`, wp.X, wp.Y))
+	}
+	sb.WriteString("]")
+	return sb.String()
 }
 
 func escapeXML(s string) string {

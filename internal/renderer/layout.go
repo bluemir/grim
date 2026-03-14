@@ -19,6 +19,11 @@ const (
 	canvasMargin   = 20.0 // margin around all content
 	nestedPadding  = 16.0 // padding inside parent node for children
 	labelHeight    = 24.0 // height reserved for parent label at top
+
+	// Icon shapes (user, bot): fixed-proportion icon with label below
+	iconNodeW  = 60.0 // icon area width
+	iconNodeH  = 60.0 // icon area height
+	iconLabelH = 20.0 // label area below icon
 )
 
 // NodeStyle holds visual properties for a node.
@@ -222,12 +227,25 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 
 	// Compute size if not fixed or if fixed without explicit w/h
 	if node.W == 0 || node.H == 0 {
-		w, h := computeNodeSize(node.Label, node.Children)
-		if node.W == 0 {
-			node.W = w
-		}
-		if node.H == 0 {
-			node.H = h
+		if node.Shape == "user" || node.Shape == "bot" {
+			// Icon shapes: maintain aspect ratio; iconLabelH is always added to h
+			switch {
+			case node.W == 0 && node.H == 0:
+				node.W = iconNodeW
+				node.H = iconNodeH + iconLabelH
+			case node.W == 0: // h given → scale w
+				node.W = iconNodeW * (node.H - iconLabelH) / iconNodeH
+			default: // w given → scale h
+				node.H = iconNodeH*node.W/iconNodeW + iconLabelH
+			}
+		} else {
+			w, h := computeNodeSize(node.Label, node.Children)
+			if node.W == 0 {
+				node.W = w
+			}
+			if node.H == 0 {
+				node.H = h
+			}
 		}
 	}
 

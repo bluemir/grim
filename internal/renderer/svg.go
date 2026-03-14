@@ -71,9 +71,13 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 	if node.Label != "" {
 		textX := absX + node.W/2
 		var textY float64
-		if len(node.Children) > 0 {
+		switch {
+		case node.Shape == "user" || node.Shape == "bot":
+			// Label below the icon area
+			textY = absY + (node.H - iconLabelH) + iconLabelH/2 + node.Style.FontSize/2 - 2
+		case len(node.Children) > 0:
 			textY = absY + labelHeight/2 + node.Style.FontSize/2 - 2
-		} else {
+		default:
 			textY = absY + node.H/2 + node.Style.FontSize/2 - 2
 		}
 		b.WriteString(fmt.Sprintf(
@@ -222,6 +226,66 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 		b.WriteString(fmt.Sprintf(
 			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="%.0f"/>`+"\n",
 			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx,
+		))
+
+	case "user":
+		// Person silhouette: circle head + curved-shoulder body, label below
+		iH := node.H - iconLabelH // icon area height
+		headR := iH * 0.22
+		headCY := absY + iH*0.27
+		neckY := headCY + headR
+		neckW := headR * 0.8
+		bodyCtrlY := neckY + (absY+iH-neckY)*0.35
+		// Body drawn first so head circle renders on top, covering the neck seam
+		b.WriteString(fmt.Sprintf(
+			`%s  <path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f L%.1f,%.1f Q%.1f,%.1f %.1f,%.1f Z" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			indent,
+			cx-neckW, neckY, // neck-left (start)
+			absX+node.W*0.05, bodyCtrlY, absX+node.W*0.05, absY+iH, // left shoulder curve → bottom-left
+			absX+node.W*0.95, absY+iH, // bottom-right of icon area
+			absX+node.W*0.95, bodyCtrlY, cx+neckW, neckY, // right shoulder curve → neck-right
+			fill, stroke, sw,
+		))
+		// Head circle (on top)
+		b.WriteString(fmt.Sprintf(
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			indent, cx, headCY, headR, fill, stroke, sw,
+		))
+
+	case "bot":
+		// Robot shape: antenna + rounded-rect face + two eye dots, label below
+		iH := node.H - iconLabelH // icon area height
+		antennaH := iH * 0.15
+		faceH := iH - antennaH
+		faceTop := absY + antennaH
+		ballR := iH * 0.05
+		ballCY := absY + ballR
+		eyeR := iH * 0.07
+		eyeY := faceTop + faceH*0.38
+		// Antenna line
+		b.WriteString(fmt.Sprintf(
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			indent, cx, faceTop, cx, ballCY+ballR, stroke, sw,
+		))
+		// Antenna ball
+		b.WriteString(fmt.Sprintf(
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			indent, cx, ballCY, ballR, stroke, stroke, sw,
+		))
+		// Face (rounded rectangle)
+		b.WriteString(fmt.Sprintf(
+			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="8"/>`+"\n",
+			indent, absX, faceTop, node.W, faceH, fill, stroke, sw,
+		))
+		// Left eye
+		b.WriteString(fmt.Sprintf(
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
+			indent, cx-node.W*0.2, eyeY, eyeR, stroke,
+		))
+		// Right eye
+		b.WriteString(fmt.Sprintf(
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
+			indent, cx+node.W*0.2, eyeY, eyeR, stroke,
 		))
 
 	default: // "rectangle" or unspecified

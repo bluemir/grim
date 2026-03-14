@@ -62,5 +62,5 @@
 	- `@layout {stack: 3}` : 3개가 겹쳐진듯 보이게
 - [ ] 줌을 svg 의 1픽셀이 4px 나 8px 단위, 즉 400% 혹은 800% 까지 지원하기
 	- 지금은 크기가 큰 svg의 경우 100% 위치가 이미 축소되어 있는 위치라 불편함.
-- [ ] bug 휠이 zoom in만 되고 zoom out 이 안됨
+- [x] bug: 휠이 zoom in만 되고 zoom out 이 안됨
 - [ ] editor 와 viewer 는 화면이 좌우 여백 없이 꽉 차야 함.

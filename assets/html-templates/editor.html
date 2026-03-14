@@ -255,9 +255,9 @@
                 zoomTo(fit);
             });
 
-            // Shift + 마우스 휠로 줌
+            // Ctrl + 마우스 휠 / 핀치로 줌
             preview.addEventListener("wheel", (e) => {
-                if (e.shiftKey) {
+                if (e.ctrlKey) {
                     e.preventDefault();
                     const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
                     zoomTo(zoomScale + delta);

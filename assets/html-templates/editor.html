@@ -108,10 +108,7 @@
             }
 
             #svg-preview .svg-container {
-                transform-origin: 0 0;
                 display: inline-block;
-                min-width: 100%;
-                min-height: 100%;
             }
 
             body[layout=one-page] [row] {
@@ -183,6 +180,7 @@
             function render() {
                 const svg = grimRender(editor.value);
                 svgContainer.innerHTML = svg;
+                applyZoom();
                 updateURL();
             }
 
@@ -223,11 +221,16 @@
             let zoomScale = 1;
             const ZOOM_STEP = 0.1;
             const ZOOM_MIN = 0.1;
-            const ZOOM_MAX = 5;
+            const ZOOM_MAX = 8;
             const zoomLevelEl = document.getElementById("zoom-level");
 
             function applyZoom() {
-                svgContainer.style.transform = `scale(${zoomScale})`;
+                const svg = svgContainer.querySelector("svg");
+                if (svg) {
+                    const vb = svg.viewBox.baseVal;
+                    svg.setAttribute("width", Math.round(vb.width * zoomScale));
+                    svg.setAttribute("height", Math.round(vb.height * zoomScale));
+                }
                 zoomLevelEl.textContent = `${Math.round(zoomScale * 100)}%`;
             }
 
@@ -257,7 +260,7 @@
                 const svgH = svg.viewBox.baseVal.height || svg.getBoundingClientRect().height;
                 const containerW = preview.clientWidth;
                 const containerH = preview.clientHeight;
-                const fit = Math.min(containerW / svgW, containerH / svgH, 1);
+                const fit = Math.min(containerW / svgW, containerH / svgH);
                 zoomTo(fit);
             });
 

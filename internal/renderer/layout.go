@@ -51,6 +51,7 @@ type LayoutNode struct {
 	W, H     float64
 	Fixed    bool
 	Shape    string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
+	Stack    int    // number of stacked shadow copies (0 or 1 = no shadow)
 	Style    NodeStyle
 	Children []*LayoutNode
 }
@@ -200,6 +201,11 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 				}
 				if h, ok := m.Values["h"]; ok {
 					node.H = toFloat(h)
+				}
+				if s, ok := m.Values["stack"]; ok {
+					if n := int(toFloat(s)); n > 1 {
+						node.Stack = n
+					}
 				}
 			case *parser.StyleMeta:
 				applyNodeStyle(&node.Style, m.Values)

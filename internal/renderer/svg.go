@@ -64,6 +64,16 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 		indent, escapeXML(node.ID), node.Line, absX, absY,
 	))
 
+	// Stack shadow layers — drawn before main shape so main shape renders on top
+	if node.Stack > 1 {
+		const stackDelta = 4.0
+		for i := node.Stack - 1; i >= 1; i-- {
+			dx := float64(i) * stackDelta
+			dy := float64(i) * stackDelta
+			renderShape(b, node, absX+dx, absY+dy, indent)
+		}
+	}
+
 	// Shape
 	renderShape(b, node, absX, absY, indent)
 

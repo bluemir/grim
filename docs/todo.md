@@ -17,7 +17,7 @@
 - [x] 중첩 요소
 - [x] 선언이 안되어 있는 node를 마우스로 옯기면 이동
 - [x] 암시적 노드가 드래그 안됨
-- [ ] 24px 이나 16px 격자 grid 에 스냅
+- [x] 24px 이나 16px 격자 grid 에 스냅
 	- alt를 누르면 무시
 	- js 단에만 적용하면 될듯
 	- block 내부에는 블록 내부에서 다시 그리드가 있는것 처럼
@@ -30,7 +30,7 @@
 - [ ] Markdown 텍스트 렌더링 — goldmark → foreignObject
 - [ ] LaTeX 텍스트 렌더링 — KaTeX → foreignObject
 - [x] 엣지 waypoints — Ctrl+Click으로 꺾임점 추가/제거
-- [ ] 엣지 anchor 지정 — top, bottom, left, right, center
+- [x] 엣지 anchor 지정 — top, bottom, left, right, center
 - [ ] 엣지 gap 커스터마이징
 - [ ] 엣지 히트박스 — 투명한 두꺼운 path 겹치기
 - [ ] 엣지 스타일 — stroke-dash, arrow 종류(triangle, diamond, none)
@@ -53,7 +53,7 @@
 - [ ] 중첩된 node 내에서도 12 grid 기반 자동 배치 지원
 - [x] 편집창에서 좌측 textarea 영역만 스크롤 우측은 주어진 크기에 꽉 차게
 - [x] `@shape` 에 user , bot 추가
-- [ ] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
+- [x] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
 - [x] access log 에서 특정 endpoint 는 query 를 찍지 않기
 	- editor, viewer 는 data query 를 찍기 않도록
 	- 실제 데이터라 너무 긴데, 서버에게 의미는 없음.

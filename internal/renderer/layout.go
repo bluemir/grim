@@ -31,11 +31,15 @@ const (
 
 // NodeStyle holds visual properties for a node.
 type NodeStyle struct {
-	Fill        string
-	Stroke      string
-	StrokeWidth float64
-	FontSize    float64
-	FontColor   string
+	Fill         string
+	Stroke       string
+	StrokeWidth  float64
+	FontSize     float64
+	FontColor    string
+	StrokeDash   string  // "" = solid; e.g. "5,3"
+	Shadow       float64 // 0 = none; blur radius in px
+	Opacity      float64 // 0 = use default (1.0)
+	BorderRadius float64 // -1 = shape default; >=0 = explicit rx value
 }
 
 // EdgeStyle holds visual properties for an edge.
@@ -86,11 +90,13 @@ type LayoutResult struct {
 }
 
 var defaultNodeStyle = NodeStyle{
-	Fill:        "#FFFFFF",
-	Stroke:      "#333333",
-	StrokeWidth: 1,
-	FontSize:    14,
-	FontColor:   "#333333",
+	Fill:         "#FFFFFF",
+	Stroke:       "#333333",
+	StrokeWidth:  1,
+	FontSize:     14,
+	FontColor:    "#333333",
+	Opacity:      1.0,
+	BorderRadius: -1, // "not set" → use shape default
 }
 
 var defaultEdgeStyle = EdgeStyle{
@@ -619,6 +625,27 @@ func applyNodeStyle(style *NodeStyle, values map[string]interface{}) {
 	}
 	if v, ok := values["font-color"]; ok {
 		style.FontColor = resolveColor(toString(v))
+	}
+	if v, ok := values["dash"]; ok {
+		switch d := v.(type) {
+		case []interface{}:
+			parts := make([]string, 0, len(d))
+			for _, item := range d {
+				parts = append(parts, fmt.Sprintf("%v", item))
+			}
+			style.StrokeDash = strings.Join(parts, ",")
+		case string:
+			style.StrokeDash = d
+		}
+	}
+	if v, ok := values["shadow"]; ok {
+		style.Shadow = toFloat(v)
+	}
+	if v, ok := values["opacity"]; ok {
+		style.Opacity = toFloat(v)
+	}
+	if v, ok := values["border-radius"]; ok {
+		style.BorderRadius = toFloat(v)
 	}
 }
 

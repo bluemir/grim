@@ -72,9 +72,16 @@ func collectAbsoluteNodes(node *LayoutNode, absX, absY float64, nodeMap map[stri
 }
 
 func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
+	extraAttrs := ""
+	if node.Style.Opacity != 1.0 && node.Style.Opacity != 0 {
+		extraAttrs += fmt.Sprintf(` opacity="%.2f"`, node.Style.Opacity)
+	}
+	if node.Style.Shadow > 0 {
+		extraAttrs += fmt.Sprintf(` filter="drop-shadow(2px 2px %.0fpx rgba(0,0,0,0.4))"`, node.Style.Shadow)
+	}
 	b.WriteString(fmt.Sprintf(
-		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f" data-w="%.1f" data-h="%.1f">`+"\n",
-		indent, escapeXML(node.ID), node.Line, absX, absY, node.W, node.H,
+		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f" data-w="%.1f" data-h="%.1f"%s>`+"\n",
+		indent, escapeXML(node.ID), node.Line, absX, absY, node.W, node.H, extraAttrs,
 	))
 
 	// Stack shadow layers — drawn before main shape so main shape renders on top
@@ -202,10 +209,18 @@ func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float
 	b.WriteString(fmt.Sprintf("%s  </text>\n", indent))
 }
 
+func dashAttr(s string) string {
+	if s == "" {
+		return ""
+	}
+	return fmt.Sprintf(` stroke-dasharray="%s"`, s)
+}
+
 func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
 	fill := escapeXML(node.Style.Fill)
 	stroke := escapeXML(node.Style.Stroke)
 	sw := node.Style.StrokeWidth
+	dash := dashAttr(node.Style.StrokeDash)
 	cx := absX + node.W/2
 	cy := absY + node.H/2
 
@@ -216,26 +231,26 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 			r = node.H / 2
 		}
 		b.WriteString(fmt.Sprintf(
-			`%s  <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, cx, cy, node.W/2, node.H/2, fill, stroke, sw,
+			`%s  <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, cx, cy, node.W/2, node.H/2, fill, stroke, sw, dash,
 		))
 
 	case "diamond":
 		b.WriteString(fmt.Sprintf(
-			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			cx, absY, // top
 			absX+node.W, cy, // right
 			cx, absY+node.H, // bottom
 			absX, cy, // left
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 
 	case "hexagon":
 		// Flat-top hexagon
 		inset := node.W * 0.25
 		b.WriteString(fmt.Sprintf(
-			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			absX+inset, absY, // top-left
 			absX+node.W-inset, absY, // top-right
@@ -243,19 +258,19 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 			absX+node.W-inset, absY+node.H, // bottom-right
 			absX+inset, absY+node.H, // bottom-left
 			absX, cy, // left
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 
 	case "parallelogram":
 		skew := node.W * 0.2
 		b.WriteString(fmt.Sprintf(
-			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			`%s  <polygon points="%.1f,%.1f %.1f,%.1f %.1f,%.1f %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			absX+skew, absY, // top-left
 			absX+node.W, absY, // top-right
 			absX+node.W-skew, absY+node.H, // bottom-right
 			absX, absY+node.H, // bottom-left
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 
 	case "cylinder":
@@ -269,26 +284,26 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 		))
 		// Left and right edges of the body
 		b.WriteString(fmt.Sprintf(
-			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, absX, bodyY, absX, bodyY+bodyH, stroke, sw,
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, absX, bodyY, absX, bodyY+bodyH, stroke, sw, dash,
 		))
 		b.WriteString(fmt.Sprintf(
-			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, absX+node.W, bodyY, absX+node.W, bodyY+bodyH, stroke, sw,
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, absX+node.W, bodyY, absX+node.W, bodyY+bodyH, stroke, sw, dash,
 		))
 		// Top ellipse (full)
 		b.WriteString(fmt.Sprintf(
-			`%s  <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, cx, bodyY, node.W/2, ry, fill, stroke, sw,
+			`%s  <ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, cx, bodyY, node.W/2, ry, fill, stroke, sw, dash,
 		))
 		// Bottom ellipse (half, bottom arc only)
 		b.WriteString(fmt.Sprintf(
-			`%s  <path d="M%.1f,%.1f A%.1f,%.1f 0 0,0 %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			`%s  <path d="M%.1f,%.1f A%.1f,%.1f 0 0,0 %.1f,%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			absX, bodyY+bodyH,
 			node.W/2, ry,
 			absX+node.W, bodyY+bodyH,
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 
 	case "cloud":
@@ -306,7 +321,7 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 				`C%.1f,%.1f %.1f,%.1f %.1f,%.1f `+ // bottom bump
 				`C%.1f,%.1f %.1f,%.1f %.1f,%.1f `+ // bottom-left bump
 				`C%.1f,%.1f %.1f,%.1f %.1f,%.1f`+ // left bump
-				`Z" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+				`Z" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			absX+w*0.15, cy, // start left-middle
 			absX-w*0.05, cy-h*0.3, absX+w*0.1, absY-h*0.1, absX+w*0.3, absY+h*0.1, // top-left
@@ -317,14 +332,17 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 			absX+w*0.45, absY+h*1.1, absX+w*0.2, absY+h*1.05, absX+w*0.25, absY+h*0.85, // bottom
 			absX+w*0.1, absY+h*0.95, absX-w*0.05, absY+h*0.8, absX+w*0.1, cy+h*0.1, // bottom-left
 			absX-w*0.05, cy+h*0.05, absX-w*0.05, cy-h*0.1, absX+w*0.15, cy, // left
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 
 	case "rounded":
 		rx := 8.0
+		if node.Style.BorderRadius >= 0 {
+			rx = node.Style.BorderRadius
+		}
 		b.WriteString(fmt.Sprintf(
-			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="%.0f"/>`+"\n",
-			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx,
+			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="%.1f"%s/>`+"\n",
+			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx, dash,
 		))
 
 	case "user":
@@ -337,18 +355,18 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 		bodyCtrlY := neckY + (absY+iH-neckY)*0.35
 		// Body drawn first so head circle renders on top, covering the neck seam
 		b.WriteString(fmt.Sprintf(
-			`%s  <path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f L%.1f,%.1f Q%.1f,%.1f %.1f,%.1f Z" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
+			`%s  <path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f L%.1f,%.1f Q%.1f,%.1f %.1f,%.1f Z" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
 			indent,
 			cx-neckW, neckY, // neck-left (start)
 			absX+node.W*0.05, bodyCtrlY, absX+node.W*0.05, absY+iH, // left shoulder curve → bottom-left
 			absX+node.W*0.95, absY+iH, // bottom-right of icon area
 			absX+node.W*0.95, bodyCtrlY, cx+neckW, neckY, // right shoulder curve → neck-right
-			fill, stroke, sw,
+			fill, stroke, sw, dash,
 		))
 		// Head circle (on top)
 		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, cx, headCY, headR, fill, stroke, sw,
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, cx, headCY, headR, fill, stroke, sw, dash,
 		))
 
 	case "bot":
@@ -363,18 +381,18 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 		eyeY := faceTop + faceH*0.38
 		// Antenna line
 		b.WriteString(fmt.Sprintf(
-			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, cx, faceTop, cx, ballCY+ballR, stroke, sw,
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, cx, faceTop, cx, ballCY+ballR, stroke, sw, dash,
 		))
 		// Antenna ball
 		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, cx, ballCY, ballR, stroke, stroke, sw,
+			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, cx, ballCY, ballR, stroke, stroke, sw, dash,
 		))
 		// Face (rounded rectangle)
 		b.WriteString(fmt.Sprintf(
-			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="8"/>`+"\n",
-			indent, absX, faceTop, node.W, faceH, fill, stroke, sw,
+			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="8"%s/>`+"\n",
+			indent, absX, faceTop, node.W, faceH, fill, stroke, sw, dash,
 		))
 		// Left eye
 		b.WriteString(fmt.Sprintf(
@@ -388,9 +406,13 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 		))
 
 	default: // "rectangle" or unspecified
+		rx := 0.0
+		if node.Style.BorderRadius >= 0 {
+			rx = node.Style.BorderRadius
+		}
 		b.WriteString(fmt.Sprintf(
-			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="0"/>`+"\n",
-			indent, absX, absY, node.W, node.H, fill, stroke, sw,
+			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="%.1f"%s/>`+"\n",
+			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx, dash,
 		))
 	}
 }

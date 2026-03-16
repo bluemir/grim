@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>grim - Viewer</title>
+        {{ template "snippet/header.html" . }}
+        <style>
+            header {
+                background-color: var(--gray-300);
+            }
+
+            html, body {
+                height: 100%;
+            }
+
+            body {
+                display: flex;
+                flex-direction: column;
+            }
+
+            body > main {
+                flex: 1;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            #svg-preview {
+                position: relative;
+                overflow: auto;
+                height: 100%;
+                min-height: 0;
+                box-sizing: border-box;
+            }
+
+            #svg-preview .zoom-controls {
+                position: sticky;
+                top: 0;
+                left: 0;
+                z-index: 10;
+                display: flex;
+                align-items: center;
+                gap: 0.25rem;
+                padding: 0.25rem 0.5rem;
+                background: var(--gray-200, #eee);
+                border-bottom: 1px solid var(--gray-300, #ccc);
+                font-size: 0.8rem;
+                user-select: none;
+            }
+
+            #svg-preview .zoom-controls button {
+                cursor: pointer;
+                padding: 0.1rem 0.4rem;
+                font-size: 0.85rem;
+                border: 1px solid var(--gray-400, #aaa);
+                background: var(--gray-100, #f5f5f5);
+                border-radius: 3px;
+            }
+
+            #svg-preview .zoom-controls button:hover {
+                background: var(--gray-300, #ddd);
+            }
+
+            #svg-preview .svg-container {
+                display: inline-block;
+            }
+
+            /* Selected node highlight */
+            .selection-outline {
+                fill: none;
+                stroke: #4a90e2;
+                stroke-width: 3;
+                pointer-events: none;
+            }
+
+            /* Selected edge highlight */
+            .svg-container g[data-type='edge'].selected > polyline:nth-child(2) {
+                stroke: #4a90e2 !important;
+            }
+
+            body[layout=one-page] [row] {
+                max-width: unset;
+                margin: 0 1rem;
+                padding: 0;
+            }
+        </style>
+    </head>
+    <body layout="one-page">
+        <header>
+            <div row>
+                <global-navigation-bar></global-navigation-bar>
+            </div>
+        </header>
+        <main>
+            <div id="svg-preview" tabindex="0">
+                <div class="zoom-controls">
+                    <button id="zoom-out" title="Zoom out">−</button>
+                    <span id="zoom-level">100%</span>
+                    <button id="zoom-in" title="Zoom in">+</button>
+                    <button id="zoom-reset" title="Reset zoom">Reset</button>
+                    <button id="zoom-fit" title="Fit to view">Fit</button>
+                    <button id="export-svg" title="Export as SVG">Export SVG</button>
+                </div>
+                <div class="svg-container" id="svg-container">
+                    <!-- svg -->
+                </div>
+            </div>
+        </main>
+        <script src="/static/{{rev .}}/bundle/wasm/wasm_exec.js"></script>
+        <script type="module">
+            const preview = document.getElementById("svg-preview");
+            const svgContainer = document.getElementById("svg-container");
+
+            // WASM 로드
+            const go = new Go();
+            const result = await WebAssembly.instantiateStreaming(
+                fetch("/static/{{rev .}}/bundle/wasm/grim.wasm"),
+                go.importObject,
+            );
+            go.run(result.instance);
+
+            // URL에서 데이터 복원 및 렌더링
+            const params = new URLSearchParams(window.location.search);
+            const data = params.get("data");
+            if (data) {
+                try {
+                    const source = decodeURIComponent(escape(atob(data)));
+                    const svg = grimRender(source);
+                    svgContainer.innerHTML = svg;
+                } catch (e) {
+                    console.warn("Failed to decode/render data from URL:", e);
+                }
+            }
+
+            // --- 줌 인/아웃 ---
+
+            let zoomScale = 1;
+            const ZOOM_STEP = 0.1;
+            const ZOOM_MIN = 0.1;
+            const ZOOM_MAX = 8;
+            const zoomLevelEl = document.getElementById("zoom-level");
+
+            function applyZoom() {
+                const svg = svgContainer.querySelector("svg");
+                if (svg) {
+                    const vb = svg.viewBox.baseVal;
+                    svg.setAttribute("width", Math.round(vb.width * zoomScale));
+                    svg.setAttribute("height", Math.round(vb.height * zoomScale));
+                }
+                zoomLevelEl.textContent = `${Math.round(zoomScale * 100)}%`;
+            }
+
+            function zoomTo(newScale) {
+                zoomScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
+                applyZoom();
+            }
+
+            document.getElementById("zoom-in").addEventListener("click", () => {
+                zoomTo(zoomScale + ZOOM_STEP);
+            });
+
+            document.getElementById("zoom-out").addEventListener("click", () => {
+                zoomTo(zoomScale - ZOOM_STEP);
+            });
+
+            document.getElementById("zoom-reset").addEventListener("click", () => {
+                zoomTo(1);
+                preview.scrollTop = 0;
+                preview.scrollLeft = 0;
+            });
+
+            document.getElementById("zoom-fit").addEventListener("click", () => {
+                const svg = svgContainer.querySelector("svg");
+                if (!svg) return;
+                const svgW = svg.viewBox.baseVal.width || svg.getBoundingClientRect().width;
+                const svgH = svg.viewBox.baseVal.height || svg.getBoundingClientRect().height;
+                const containerW = preview.clientWidth;
+                const containerH = preview.clientHeight;
+                const fit = Math.min(containerW / svgW, containerH / svgH);
+                zoomTo(fit);
+            });
+
+            // Ctrl + 마우스 휠 / 핀치로 줌
+            preview.addEventListener("wheel", (e) => {
+                if (e.ctrlKey) {
+                    e.preventDefault();
+                    const delta = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+                    zoomTo(zoomScale + delta);
+                }
+            }, { passive: false });
+
+            // --- WASD 부드러운 스크롤 ---
+
+            const SCROLL_SPEED = 5;
+            const pressedKeys = new Set();
+            let scrollRAF = null;
+
+            const WASD_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
+
+            window.addEventListener("keydown", (e) => {
+                const tag = document.activeElement?.tagName;
+                if (tag === "TEXTAREA" || tag === "INPUT") return;
+                if (WASD_CODES.has(e.code) && !pressedKeys.has(e.code)) {
+                    pressedKeys.add(e.code);
+                    e.preventDefault();
+                    if (!scrollRAF) scrollLoop();
+                }
+            });
+
+            window.addEventListener("keyup", (e) => {
+                pressedKeys.delete(e.code);
+                if (pressedKeys.size === 0 && scrollRAF) {
+                    cancelAnimationFrame(scrollRAF);
+                    scrollRAF = null;
+                }
+            });
+
+            function scrollLoop() {
+                if (pressedKeys.has("KeyW")) preview.scrollTop -= SCROLL_SPEED;
+                if (pressedKeys.has("KeyS")) preview.scrollTop += SCROLL_SPEED;
+                if (pressedKeys.has("KeyA")) preview.scrollLeft -= SCROLL_SPEED;
+                if (pressedKeys.has("KeyD")) preview.scrollLeft += SCROLL_SPEED;
+                scrollRAF = requestAnimationFrame(scrollLoop);
+            }
+
+            // --- 클릭 하이라이트 (읽기 전용) ---
+
+            let selectedGroup = null;
+            let selectedEdge = null;
+
+            function findNodeGroup(el) {
+                while (el && el !== svgContainer) {
+                    if (el.tagName === "g" && el.dataset.id && el.dataset.x !== undefined) {
+                        return el;
+                    }
+                    el = el.parentElement;
+                }
+                return null;
+            }
+
+            function addSelectionOutline(group) {
+                removeSelectionOutline();
+                const w = parseFloat(group.dataset.w);
+                const h = parseFloat(group.dataset.h);
+                const outline = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                outline.setAttribute("x", 0);
+                outline.setAttribute("y", 0);
+                outline.setAttribute("width", w);
+                outline.setAttribute("height", h);
+                outline.classList.add("selection-outline");
+                group.appendChild(outline);
+            }
+
+            function removeSelectionOutline() {
+                svgContainer.querySelectorAll(".selection-outline").forEach(el => el.remove());
+            }
+
+            svgContainer.addEventListener("click", (e) => {
+                // Edge click
+                const edgeGroup = e.target.closest("g[data-type='edge']");
+                if (edgeGroup) {
+                    if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeSelectionOutline(); }
+                    if (selectedEdge === edgeGroup) {
+                        edgeGroup.classList.remove("selected");
+                        selectedEdge = null;
+                    } else {
+                        if (selectedEdge) selectedEdge.classList.remove("selected");
+                        selectedEdge = edgeGroup;
+                        edgeGroup.classList.add("selected");
+                    }
+                    return;
+                }
+
+                // Node click
+                const group = findNodeGroup(e.target);
+                if (group) {
+                    if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
+                    if (selectedGroup === group) {
+                        group.classList.remove("selected");
+                        removeSelectionOutline();
+                        selectedGroup = null;
+                    } else {
+                        if (selectedGroup) { selectedGroup.classList.remove("selected"); removeSelectionOutline(); }
+                        selectedGroup = group;
+                        group.classList.add("selected");
+                        addSelectionOutline(group);
+                    }
+                    return;
+                }
+
+                // Click on empty area: deselect all
+                if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeSelectionOutline(); }
+                if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
+            });
+
+            // Escape to deselect
+            window.addEventListener("keydown", (e) => {
+                if (e.code === "Escape") {
+                    if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeSelectionOutline(); }
+                    if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
+                }
+            });
+
+            // --- Export SVG ---
+            document.getElementById("export-svg").addEventListener("click", () => {
+                const svg = svgContainer.querySelector("svg");
+                if (!svg) return;
+                const clone = svg.cloneNode(true);
+                clone.querySelectorAll(".selection-outline").forEach(el => el.remove());
+                const vb = svg.viewBox.baseVal;
+                clone.setAttribute("width", vb.width);
+                clone.setAttribute("height", vb.height);
+                const serializer = new XMLSerializer();
+                const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    + serializer.serializeToString(clone);
+                const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "diagram.svg";
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
+            // 초기 줌 적용
+            applyZoom();
+        </script>
+    </body>
+</html>

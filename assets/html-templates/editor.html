@@ -400,17 +400,15 @@
 
             function attachResizeHandles(group) {
                 removeResizeHandles();
-                const x = parseFloat(group.dataset.x);
-                const y = parseFloat(group.dataset.y);
                 const w = parseFloat(group.dataset.w);
                 const h = parseFloat(group.dataset.h);
                 const ht = HANDLE_SIZE; // hit area thickness
-                // Each handle covers the full length of its side
+                // Each handle covers the full length of its side (local coords: node shape at 0,0)
                 const sides = [
-                    ["n", x,           y - ht/2,     w,  ht],
-                    ["s", x,           y + h - ht/2, w,  ht],
-                    ["e", x + w - ht/2, y,            ht, h],
-                    ["w", x - ht/2,    y,             ht, h],
+                    ["n", 0,           -ht/2,        w,  ht],
+                    ["s", 0,           h - ht/2,     w,  ht],
+                    ["e", w - ht/2,    0,            ht, h],
+                    ["w", -ht/2,       0,            ht, h],
                 ];
                 for (const [dir, hx, hy, hw, hh] of sides) {
                     const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
@@ -430,16 +428,12 @@
 
             function repositionResizeHandles(group, x, y, w, h) {
                 const ht = HANDLE_SIZE;
-                const transform = group.getAttribute("transform") || "";
-                const match = transform.match(/translate\(\s*([^,\s]+)[,\s]+([^)\s]+)\s*\)/);
-                const tx = match ? parseFloat(match[1]) : 0;
-                const ty = match ? parseFloat(match[2]) : 0;
-                // [x, y, width, height] in group-local coords (absolute minus translate)
+                // Handles are in local coords (node shape at 0,0)
                 const positions = {
-                    n: [x - tx,            y - ht/2 - ty,       w,  ht],
-                    s: [x - tx,            y + h - ht/2 - ty,   w,  ht],
-                    e: [x + w - ht/2 - tx, y - ty,              ht, h],
-                    w: [x - ht/2 - tx,     y - ty,              ht, h],
+                    n: [0,           -ht/2,        w,  ht],
+                    s: [0,           h - ht/2,     w,  ht],
+                    e: [w - ht/2,    0,            ht, h],
+                    w: [-ht/2,       0,            ht, h],
                 };
                 group.querySelectorAll(".resize-handle").forEach(rect => {
                     const dir = rect.dataset.resizeHandle;
@@ -611,7 +605,9 @@
                         newH = Math.max(MIN_NODE_H, snapToGrid(origH - dy, e.altKey));
                         newY = origY + (origH - newH);
                     }
-                    group.setAttribute("transform", `translate(${newX - origX}, ${newY - origY})`);
+                    const localX = parseFloat(group.dataset.localX || "0");
+                    const localY = parseFloat(group.dataset.localY || "0");
+                    group.setAttribute("transform", `translate(${localX + (newX - origX)}, ${localY + (newY - origY)})`);
                     repositionResizeHandles(group, newX, newY, newW, newH);
                     updateResizeSizeLabel(svg, dir, newX, newY, newW, newH);
                     return;
@@ -619,8 +615,10 @@
 
                 if (anchorDragState) {
                     const pt = getSVGPoint(anchorDragState.svg, e.clientX, e.clientY);
-                    anchorDragState.anchorEl.setAttribute("cx", pt.x.toFixed(1));
-                    anchorDragState.anchorEl.setAttribute("cy", pt.y.toFixed(1));
+                    const ancX = parseFloat(anchorDragState.edgeGroup.dataset.ancestorX || "0");
+                    const ancY = parseFloat(anchorDragState.edgeGroup.dataset.ancestorY || "0");
+                    anchorDragState.anchorEl.setAttribute("cx", (pt.x - ancX).toFixed(1));
+                    anchorDragState.anchorEl.setAttribute("cy", (pt.y - ancY).toFixed(1));
                     return;
                 }
 
@@ -654,7 +652,11 @@
                     snapDx = snapToGrid(rawAbsX, e.altKey) - dragState.origX;
                     snapDy = snapToGrid(rawAbsY, e.altKey) - dragState.origY;
                 }
-                dragState.group.setAttribute("transform", `translate(${snapDx}, ${snapDy})`);
+                if (dragState.group) {
+                    const localX = parseFloat(dragState.group.dataset.localX || "0");
+                    const localY = parseFloat(dragState.group.dataset.localY || "0");
+                    dragState.group.setAttribute("transform", `translate(${localX + snapDx}, ${localY + snapDy})`);
+                }
             });
 
             window.addEventListener("mouseup", (e) => {
@@ -774,31 +776,6 @@
                     newY = snapToGrid(rawY, e.altKey);
                 }
 
-                // Compute absolute SVG delta. origX/origY are always absolute (from data-x/y).
-                // For child nodes newX/newY are relative-to-parent, so restore absolute coords.
-                const absNewX = parentX !== null ? newX + parentX : newX;
-                const absNewY = parentX !== null ? newY + parentY + LABEL_HEIGHT : newY;
-                const dx = absNewX - origX;
-                const dy = absNewY - origY;
-
-                // Translate waypoints of connected edges (edge waypoints are absolute coords).
-                if (dx !== 0 || dy !== 0) {
-                    svgContainer.querySelectorAll("g[data-type='edge']").forEach(edgeGroup => {
-                        const fromId = edgeGroup.dataset.fromId || "";
-                        const toId   = edgeGroup.dataset.toId   || "";
-                        const connected = fromId === id || toId === id ||
-                            fromId.startsWith(id + '.') || toId.startsWith(id + '.');
-                        if (!connected) return;
-
-                        const wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
-                        if (wps.length === 0) return;
-
-                        const line = parseInt(edgeGroup.dataset.line, 10);
-                        const translated = wps.map(wp => ({ x: wp.x + dx, y: wp.y + dy }));
-                        editor.value = grimSetEdgeWaypoints(editor.value, line, translated);
-                    });
-                }
-
                 editor.value = grimSetLayout(editor.value, id, newX, newY);
                 render();
             });
@@ -842,8 +819,11 @@
                 const line = parseInt(edgeGroup.dataset.line);
                 let wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
 
-                const insertIdx = findInsertIndex(edgeGroup, wps, pt);
-                wps.splice(insertIdx, 0, { x: Math.round(pt.x), y: Math.round(pt.y) });
+                const ancX = parseFloat(edgeGroup.dataset.ancestorX || "0");
+                const ancY = parseFloat(edgeGroup.dataset.ancestorY || "0");
+                const localPt = { x: pt.x - ancX, y: pt.y - ancY };
+                const insertIdx = findInsertIndex(edgeGroup, wps, localPt);
+                wps.splice(insertIdx, 0, { x: Math.round(localPt.x), y: Math.round(localPt.y) });
                 editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
                 render();
             });

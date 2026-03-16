@@ -45,14 +45,16 @@ func RenderSVG(layout *LayoutResult) string {
 		collectAbsoluteNodes(node, node.X, node.Y, nodeMap)
 	}
 
+	edgesByAncestor := groupEdgesByAncestor(layout.Edges)
+
 	// Render nodes
 	for _, node := range layout.Nodes {
-		renderNode(&b, node, node.X, node.Y, "  ")
+		renderNode(&b, node, node.X, node.Y, node.X, node.Y, edgesByAncestor, nodeMap, "  ")
 	}
 
-	// Render edges
-	for _, edge := range layout.Edges {
-		renderEdge(&b, edge, nodeMap)
+	// Render root-level edges
+	for _, edge := range edgesByAncestor[""] {
+		renderEdge(&b, edge, nodeMap, 0, 0, "  ")
 	}
 
 	b.WriteString("</svg>\n")
@@ -71,7 +73,38 @@ func collectAbsoluteNodes(node *LayoutNode, absX, absY float64, nodeMap map[stri
 	}
 }
 
-func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
+// commonContainerID returns the ID of the node whose <g> should contain the edge.
+// "" means the edge belongs at SVG root level.
+func commonContainerID(fromID, toID string) string {
+	partsA := strings.Split(fromID, ".")
+	partsB := strings.Split(toID, ".")
+	var common []string
+	for i := 0; i < len(partsA) && i < len(partsB); i++ {
+		if partsA[i] != partsB[i] {
+			break
+		}
+		common = append(common, partsA[i])
+	}
+	commonStr := strings.Join(common, ".")
+	if fromID == commonStr || toID == commonStr {
+		if len(common) == 0 {
+			return ""
+		}
+		common = common[:len(common)-1]
+	}
+	return strings.Join(common, ".")
+}
+
+func groupEdgesByAncestor(edges []*LayoutEdge) map[string][]*LayoutEdge {
+	result := make(map[string][]*LayoutEdge)
+	for _, edge := range edges {
+		ancestor := commonContainerID(edge.FromID, edge.ToID)
+		result[ancestor] = append(result[ancestor], edge)
+	}
+	return result
+}
+
+func renderNode(b *strings.Builder, node *LayoutNode, absX, absY, localX, localY float64, edgesByAncestor map[string][]*LayoutEdge, nodeMap map[string]*absoluteNode, indent string) {
 	extraAttrs := ""
 	if node.Style.Opacity != 1.0 && node.Style.Opacity != 0 {
 		extraAttrs += fmt.Sprintf(` opacity="%.2f"`, node.Style.Opacity)
@@ -80,8 +113,8 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 		extraAttrs += fmt.Sprintf(` filter="drop-shadow(2px 2px %.0fpx rgba(0,0,0,0.4))"`, node.Style.Shadow)
 	}
 	b.WriteString(fmt.Sprintf(
-		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f" data-w="%.1f" data-h="%.1f"%s>`+"\n",
-		indent, escapeXML(node.ID), node.Line, absX, absY, node.W, node.H, extraAttrs,
+		`%s<g data-id="%s" data-line="%d" data-x="%.1f" data-y="%.1f" data-local-x="%.1f" data-local-y="%.1f" data-w="%.1f" data-h="%.1f" transform="translate(%.1f,%.1f)"%s>`+"\n",
+		indent, escapeXML(node.ID), node.Line, absX, absY, localX, localY, node.W, node.H, localX, localY, extraAttrs,
 	))
 
 	// Stack shadow layers — drawn before main shape so main shape renders on top
@@ -91,35 +124,40 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 		for i := node.Stack - 1; i >= 1; i-- {
 			dx := float64(i) * stackDelta
 			dy := float64(i) * stackDelta
-			renderShape(b, node, absX+dx, absY+dy, indent+"  ")
+			renderShape(b, node, dx, dy, indent+"  ")
 		}
 		b.WriteString(fmt.Sprintf("%s  </g>\n", indent))
 	}
 
 	// Shape
-	renderShape(b, node, absX, absY, indent)
+	renderShape(b, node, 0, 0, indent)
 
 	// Label text
 	if node.Label != "" {
 		if node.TextFormat == "markdown" {
-			renderMarkdownLabel(b, node, absX, absY, indent)
+			renderMarkdownLabel(b, node, 0, 0, indent)
 		} else {
-			renderPlainTextLabel(b, node, absX, absY, indent)
+			renderPlainTextLabel(b, node, 0, 0, indent)
 		}
 	}
 
 	// Separator line between label and children area
 	if len(node.Children) > 0 {
-		sepY := absY + labelHeight
+		sepY := labelHeight
 		b.WriteString(fmt.Sprintf(
 			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, absX, sepY, absX+node.W, sepY, escapeXML(node.Style.Stroke), node.Style.StrokeWidth,
+			indent, 0.0, sepY, node.W, sepY, escapeXML(node.Style.Stroke), node.Style.StrokeWidth,
 		))
 	}
 
 	// Render children
 	for _, child := range node.Children {
-		renderNode(b, child, absX+child.X, absY+child.Y, indent+"  ")
+		renderNode(b, child, absX+child.X, absY+child.Y, child.X, child.Y, edgesByAncestor, nodeMap, indent+"  ")
+	}
+
+	// Render edges whose common ancestor is this node
+	for _, edge := range edgesByAncestor[node.ID] {
+		renderEdge(b, edge, nodeMap, absX, absY, indent+"  ")
 	}
 
 	b.WriteString(fmt.Sprintf("%s</g>\n", indent))
@@ -417,7 +455,7 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 	}
 }
 
-func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absoluteNode) {
+func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absoluteNode, ancestorAbsX, ancestorAbsY float64, indent string) {
 	from, ok := nodeMap[edge.FromID]
 	if !ok {
 		return
@@ -427,13 +465,20 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 		return
 	}
 
-	// Centers
-	fromCX := from.X + from.W/2
-	fromCY := from.Y + from.H/2
-	toCX := to.X + to.W/2
-	toCY := to.Y + to.H/2
+	// Local positions (relative to ancestor's coordinate origin)
+	fromLocalX := from.X - ancestorAbsX
+	fromLocalY := from.Y - ancestorAbsY
+	toLocalX := to.X - ancestorAbsX
+	toLocalY := to.Y - ancestorAbsY
+
+	// Centers in local coords
+	fromCX := fromLocalX + from.W/2
+	fromCY := fromLocalY + from.H/2
+	toCX := toLocalX + to.W/2
+	toCY := toLocalY + to.H/2
 
 	// Direction for intersection: use first/last waypoint if available
+	// Waypoints are stored in ancestor-local coords
 	srcDirX, srcDirY := toCX, toCY
 	dstDirX, dstDirY := fromCX, fromCY
 	if len(edge.Waypoints) > 0 {
@@ -445,8 +490,6 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	}
 
 	// Anchor overrides: replace direction vectors with fixed-angle directions.
-	// Multiply by a large constant so the target point is always beyond the node
-	// boundary (IntersectLine* requires t ∈ [0,1] along the (center→target) ray).
 	const anchorDirLen = 10000.0
 	var fromAnchorCenter, toAnchorCenter bool
 	if edge.FromAnchor != "" && edge.FromAnchor != "-" {
@@ -473,7 +516,7 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	if fromAnchorCenter {
 		x1, y1 = fromCX, fromCY
 	} else {
-		x1, y1 = IntersectLineShape(fromCX, fromCY, srcDirX, srcDirY, from.X, from.Y, from.W, from.H, from.Shape)
+		x1, y1 = IntersectLineShape(fromCX, fromCY, srcDirX, srcDirY, fromLocalX, fromLocalY, from.W, from.H, from.Shape)
 		x1, y1 = ApplyGap(x1, y1, fromCX, fromCY, defaultGap)
 	}
 	// Intersection with target boundary (or center if anchor == "center")
@@ -481,7 +524,7 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	if toAnchorCenter {
 		x2, y2 = toCX, toCY
 	} else {
-		x2, y2 = IntersectLineShape(toCX, toCY, dstDirX, dstDirY, to.X, to.Y, to.W, to.H, to.Shape)
+		x2, y2 = IntersectLineShape(toCX, toCY, dstDirX, dstDirY, toLocalX, toLocalY, to.W, to.H, to.Shape)
 		x2, y2 = ApplyGap(x2, y2, toCX, toCY, defaultGap)
 	}
 
@@ -515,39 +558,40 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	}
 
 	b.WriteString(fmt.Sprintf(
-		`  <g data-id="%s" data-line="%d" data-type="edge" data-waypoints='%s' data-from-anchor='%s' data-to-anchor='%s' data-from-id='%s' data-to-id='%s'>`+"\n",
-		escapeXML(edge.ID), edge.Line, waypointsAttr(edge.Waypoints),
+		`%s<g data-id="%s" data-line="%d" data-type="edge" data-waypoints='%s' data-from-anchor='%s' data-to-anchor='%s' data-from-id='%s' data-to-id='%s' data-ancestor-x="%.1f" data-ancestor-y="%.1f">`+"\n",
+		indent, escapeXML(edge.ID), edge.Line, waypointsAttr(edge.Waypoints),
 		edge.FromAnchor, edge.ToAnchor, escapeXML(edge.FromID), escapeXML(edge.ToID),
+		ancestorAbsX, ancestorAbsY,
 	))
 
 	// Invisible hit-target polyline for easy click detection
 	b.WriteString(fmt.Sprintf(
-		`    <polyline points="%s" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/>`+"\n",
-		pointsStr,
+		`%s  <polyline points="%s" fill="none" stroke="transparent" stroke-width="12" pointer-events="stroke"/>`+"\n",
+		indent, pointsStr,
 	))
 
 	// Visible polyline
 	b.WriteString(fmt.Sprintf(
-		`    <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
-		pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
+		`%s  <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
+		indent, pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
 	))
 
 	// Waypoint handle circles
 	for i, wp := range edge.Waypoints {
 		b.WriteString(fmt.Sprintf(
-			`    <circle data-waypoint-idx="%d" cx="%.1f" cy="%.1f" r="4" fill="#4a90e2" stroke="white" stroke-width="1.5" style="cursor:pointer"/>`+"\n",
-			i, wp.X, wp.Y,
+			`%s  <circle data-waypoint-idx="%d" cx="%.1f" cy="%.1f" r="4" fill="#4a90e2" stroke="white" stroke-width="1.5" style="cursor:pointer"/>`+"\n",
+			indent, i, wp.X, wp.Y,
 		))
 	}
 
 	// Anchor handle circles (from=orange, to=green); hidden until edge hover via CSS
 	b.WriteString(fmt.Sprintf(
-		`    <circle data-anchor-from="" cx="%.1f" cy="%.1f" r="5" fill="#e8801a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
-		x1, y1,
+		`%s  <circle data-anchor-from="" cx="%.1f" cy="%.1f" r="5" fill="#e8801a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
+		indent, x1, y1,
 	))
 	b.WriteString(fmt.Sprintf(
-		`    <circle data-anchor-to="" cx="%.1f" cy="%.1f" r="5" fill="#2a9a2a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
-		x2, y2,
+		`%s  <circle data-anchor-to="" cx="%.1f" cy="%.1f" r="5" fill="#2a9a2a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
+		indent, x2, y2,
 	))
 
 	// Edge label at midpoint of points list
@@ -563,12 +607,12 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 		}
 		midY -= 6 // slight offset above line
 		b.WriteString(fmt.Sprintf(
-			`    <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
-			midX, midY, edge.Style.FontSize, escapeXML(edge.Style.Stroke), escapeXML(edge.Label),
+			`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
+			indent, midX, midY, edge.Style.FontSize, escapeXML(edge.Style.Stroke), escapeXML(edge.Label),
 		))
 	}
 
-	b.WriteString("  </g>\n")
+	b.WriteString(fmt.Sprintf("%s</g>\n", indent))
 }
 
 func waypointsAttr(wps []Point) string {

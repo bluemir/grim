@@ -111,6 +111,15 @@
                 display: inline-block;
             }
 
+            /* Selected node highlight */
+            .svg-container g[data-id].selected > rect:first-of-type {
+                stroke: #4a90e2 !important;
+                stroke-width: 3 !important;
+            }
+            .svg-container g[data-id].selected > foreignObject > * {
+                outline: 2px solid #4a90e2;
+            }
+
             body[layout=one-page] [row] {
                 max-width: unset;
                 margin: 0;
@@ -182,6 +191,17 @@
                 svgContainer.innerHTML = svg;
                 applyZoom();
                 updateURL();
+                // Restore selected node class after re-render
+                if (selectedGroup) {
+                    const id = selectedGroup.dataset.id;
+                    const restored = svgContainer.querySelector(`g[data-id="${CSS.escape(id)}"]`);
+                    if (restored) {
+                        restored.classList.add("selected");
+                        selectedGroup = restored;
+                    } else {
+                        selectedGroup = null;
+                    }
+                }
             }
 
             function updateURL() {
@@ -339,6 +359,7 @@
             let dragState = null;
             let waypointDragState = null;
             let anchorDragState = null;
+            let selectedGroup = null;
 
             svgContainer.addEventListener("mousedown", (e) => {
                 // Anchor handle drag (from/to connection point)
@@ -507,6 +528,10 @@
                 const pixelDist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY);
                 if (pixelDist < 5) {
                     // Click (not drag): navigate textarea cursor to declaration line
+                    if (selectedGroup) selectedGroup.classList.remove("selected");
+                    selectedGroup = group;
+                    group.classList.add("selected");
+
                     const line = parseInt(group.dataset.line);
                     navigateToLine(editor, line);
                     return;
@@ -584,6 +609,11 @@
                 const lineLen = lines[lineNumber - 1].length;
                 textarea.focus();
                 textarea.setSelectionRange(pos, pos + lineLen);
+                // Scroll textarea so selected line is visible (centered)
+                const totalLines = lines.length;
+                const lineHeight = textarea.scrollHeight / totalLines;
+                const targetScrollTop = (lineNumber - 1) * lineHeight - textarea.clientHeight / 2 + lineHeight / 2;
+                textarea.scrollTop = Math.max(0, targetScrollTop);
             }
 
             function findInsertIndex(edgeGroup, wps, pt) {

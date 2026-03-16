@@ -66,6 +66,8 @@ func writeEdgeDecl(sb *strings.Builder, e *EdgeDecl, depth int) {
 	writeIndent(sb, depth)
 	sb.WriteString(strings.Join(e.From, "."))
 	switch e.Direction {
+	case "none":
+		sb.WriteString(" -- ")
 	case "reverse":
 		sb.WriteString(" <- ")
 	case "bidirectional":

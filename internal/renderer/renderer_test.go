@@ -70,7 +70,7 @@ func TestRenderEdge(t *testing.T) {
 	if !strings.Contains(svg, `data-id="A--B"`) {
 		t.Error("expected data-id for edge A--B")
 	}
-	if !strings.Contains(svg, `marker-end="url(#arrowhead)"`) {
+	if !strings.Contains(svg, `marker-end="url(#arrowhead-333333)"`) {
 		t.Error("expected arrowhead marker on edge")
 	}
 }

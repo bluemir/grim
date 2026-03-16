@@ -25,14 +25,28 @@ func RenderSVG(layout *LayoutResult) string {
 		layout.Width, layout.Height, layout.Width, layout.Height,
 	))
 
-	// Defs: arrowhead markers
+	// Collect unique edge stroke colors for marker generation
+	edgeColors := collectEdgeColors(layout.Edges)
+
+	// Defs: arrowhead markers (one pair per unique edge stroke color)
 	b.WriteString(`  <defs>` + "\n")
-	b.WriteString(`    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">` + "\n")
-	b.WriteString(`      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>` + "\n")
-	b.WriteString(`    </marker>` + "\n")
-	b.WriteString(`    <marker id="arrowhead-start" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">` + "\n")
-	b.WriteString(`      <polygon points="10 0, 0 3.5, 10 7" fill="#333"/>` + "\n")
-	b.WriteString(`    </marker>` + "\n")
+	for color := range edgeColors {
+		safeColor := escapeXML(color)
+		fwdID := markerID(color, false)
+		revID := markerID(color, true)
+		b.WriteString(fmt.Sprintf(
+			`    <marker id="%s" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">`+"\n"+
+				`      <polygon points="0 0, 10 3.5, 0 7" fill="%s"/>`+"\n"+
+				`    </marker>`+"\n",
+			fwdID, safeColor,
+		))
+		b.WriteString(fmt.Sprintf(
+			`    <marker id="%s" markerWidth="10" markerHeight="7" refX="0" refY="3.5" orient="auto">`+"\n"+
+				`      <polygon points="10 0, 0 3.5, 10 7" fill="%s"/>`+"\n"+
+				`    </marker>`+"\n",
+			revID, safeColor,
+		))
+	}
 	b.WriteString(`    <style>` + "\n")
 	b.WriteString(`      [data-anchor-handle] { opacity: 0; transition: opacity 0.1s; }` + "\n")
 	b.WriteString(`      g[data-type="edge"]:hover [data-anchor-handle] { opacity: 1; }` + "\n")
@@ -132,6 +146,11 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY, localX, localY
 	// Shape
 	renderShape(b, node, 0, 0, indent)
 
+	// Icon overlay
+	if hasIcon(node) {
+		renderIcon(b, node, 0, 0, indent)
+	}
+
 	// Label text
 	if node.Label != "" {
 		if node.TextFormat == "markdown" {
@@ -145,8 +164,8 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY, localX, localY
 	if len(node.Children) > 0 {
 		sepY := labelHeight
 		b.WriteString(fmt.Sprintf(
-			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"/>`+"\n",
-			indent, 0.0, sepY, node.W, sepY, escapeXML(node.Style.Stroke), node.Style.StrokeWidth,
+			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+			indent, 0.0, sepY, node.W, sepY, escapeXML(node.Style.Stroke), node.Style.StrokeWidth, dashAttr(node.Style.StrokeDash),
 		))
 	}
 
@@ -177,18 +196,23 @@ func renderMarkdownLabel(b *strings.Builder, node *LayoutNode, absX, absY float6
 
 	var foX, foY, foW, foH float64
 	switch {
-	case node.Shape == "user" || node.Shape == "bot":
-		foY = absY + (node.H - iconLabelH)
-		foH = iconLabelH
+	case hasIcon(node):
+		sz := node.IconSize
+		switch node.IconPosition {
+		case "bottom":
+			foX, foY, foW, foH = absX+4, absY+4, node.W-8, node.H-sz-iconGap-4
+		case "left":
+			foX, foY, foW, foH = absX+sz+iconGap, absY+4, node.W-sz-iconGap-4, node.H-8
+		case "right":
+			foX, foY, foW, foH = absX+4, absY+4, node.W-sz-iconGap-4, node.H-8
+		default: // "top"
+			foX, foY, foW, foH = absX+4, absY+sz+iconGap, node.W-8, node.H-sz-iconGap-4
+		}
 	case len(node.Children) > 0:
-		foY = absY + 2
-		foH = labelHeight - 4
+		foX, foY, foW, foH = absX+4, absY+2, node.W-8, labelHeight-4
 	default:
-		foY = absY + 4
-		foH = node.H - 8
+		foX, foY, foW, foH = absX+4, absY+4, node.W-8, node.H-8
 	}
-	foX = absX + 4
-	foW = node.W - 8
 
 	b.WriteString(fmt.Sprintf(
 		`%s  <foreignObject x="%.1f" y="%.1f" width="%.1f" height="%.1f">`+"\n",
@@ -211,8 +235,23 @@ func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float
 	textX := absX + node.W/2
 	var centerY float64
 	switch {
-	case node.Shape == "user" || node.Shape == "bot":
-		centerY = absY + (node.H - iconLabelH) + iconLabelH/2 + node.Style.FontSize/2 - 2
+	case hasIcon(node):
+		sz := node.IconSize
+		switch node.IconPosition {
+		case "bottom":
+			labelAreaH := node.H - sz - iconGap
+			centerY = absY + labelAreaH/2 + node.Style.FontSize/2 - 2
+		case "left":
+			textX = absX + (node.W+sz+iconGap)/2
+			centerY = absY + node.H/2 + node.Style.FontSize/2 - 2
+		case "right":
+			textX = absX + (node.W-sz-iconGap)/2
+			centerY = absY + node.H/2 + node.Style.FontSize/2 - 2
+		default: // "top"
+			iconAreaH := sz + iconGap
+			labelAreaH := node.H - iconAreaH
+			centerY = absY + iconAreaH + labelAreaH/2 + node.Style.FontSize/2 - 2
+		}
 	case len(node.Children) > 0:
 		centerY = absY + labelHeight/2 + node.Style.FontSize/2 - 2
 	default:
@@ -383,66 +422,6 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx, dash,
 		))
 
-	case "user":
-		// Person silhouette: circle head + curved-shoulder body, label below
-		iH := node.H - iconLabelH // icon area height
-		headR := iH * 0.22
-		headCY := absY + iH*0.27
-		neckY := headCY + headR
-		neckW := headR * 0.8
-		bodyCtrlY := neckY + (absY+iH-neckY)*0.35
-		// Body drawn first so head circle renders on top, covering the neck seam
-		b.WriteString(fmt.Sprintf(
-			`%s  <path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f L%.1f,%.1f Q%.1f,%.1f %.1f,%.1f Z" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
-			indent,
-			cx-neckW, neckY, // neck-left (start)
-			absX+node.W*0.05, bodyCtrlY, absX+node.W*0.05, absY+iH, // left shoulder curve → bottom-left
-			absX+node.W*0.95, absY+iH, // bottom-right of icon area
-			absX+node.W*0.95, bodyCtrlY, cx+neckW, neckY, // right shoulder curve → neck-right
-			fill, stroke, sw, dash,
-		))
-		// Head circle (on top)
-		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
-			indent, cx, headCY, headR, fill, stroke, sw, dash,
-		))
-
-	case "bot":
-		// Robot shape: antenna + rounded-rect face + two eye dots, label below
-		iH := node.H - iconLabelH // icon area height
-		antennaH := iH * 0.15
-		faceH := iH - antennaH
-		faceTop := absY + antennaH
-		ballR := iH * 0.05
-		ballCY := absY + ballR
-		eyeR := iH * 0.07
-		eyeY := faceTop + faceH*0.38
-		// Antenna line
-		b.WriteString(fmt.Sprintf(
-			`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
-			indent, cx, faceTop, cx, ballCY+ballR, stroke, sw, dash,
-		))
-		// Antenna ball
-		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
-			indent, cx, ballCY, ballR, stroke, stroke, sw, dash,
-		))
-		// Face (rounded rectangle)
-		b.WriteString(fmt.Sprintf(
-			`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="8"%s/>`+"\n",
-			indent, absX, faceTop, node.W, faceH, fill, stroke, sw, dash,
-		))
-		// Left eye
-		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
-			indent, cx-node.W*0.2, eyeY, eyeR, stroke,
-		))
-		// Right eye
-		b.WriteString(fmt.Sprintf(
-			`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
-			indent, cx+node.W*0.2, eyeY, eyeR, stroke,
-		))
-
 	default: // "rectangle" or unspecified
 		rx := 0.0
 		if node.Style.BorderRadius >= 0 {
@@ -453,6 +432,122 @@ func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, inden
 			indent, absX, absY, node.W, node.H, fill, stroke, sw, rx, dash,
 		))
 	}
+}
+
+func renderIcon(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
+	sz := node.IconSize
+	var ix, iy float64
+	switch node.IconPosition {
+	case "bottom":
+		ix = absX + (node.W-sz)/2
+		iy = absY + node.H - sz - iconGap/2
+	case "left":
+		ix = absX + iconGap/2
+		iy = absY + (node.H-sz)/2
+	case "right":
+		ix = absX + node.W - sz - iconGap/2
+		iy = absY + (node.H-sz)/2
+	default: // "top"
+		ix = absX + (node.W-sz)/2
+		iy = absY + iconGap/2
+	}
+
+	switch node.IconKind {
+	case "user":
+		renderUserIcon(b, ix, iy, sz, node.Style, indent)
+	case "bot":
+		renderBotIcon(b, ix, iy, sz, node.Style, indent)
+	default:
+		// URL-based <image> rendering
+		b.WriteString(fmt.Sprintf(
+			`%s  <image x="%.1f" y="%.1f" width="%.1f" height="%.1f" href="%s" preserveAspectRatio="xMidYMid meet"/>`+"\n",
+			indent, ix, iy, sz, sz, escapeXML(node.IconURL),
+		))
+	}
+}
+
+// iconStroke returns stroke color and width for built-in icons,
+// falling back to defaults when the node style suppresses them.
+func iconStroke(style NodeStyle) (string, float64) {
+	stroke := style.Stroke
+	sw := style.StrokeWidth
+	if stroke == "" || stroke == "none" {
+		stroke = defaultNodeStyle.Stroke
+	}
+	if sw <= 0 {
+		sw = defaultNodeStyle.StrokeWidth
+	}
+	return escapeXML(stroke), sw
+}
+
+// renderUserIcon draws a person silhouette (head + shoulders) within the given box.
+func renderUserIcon(b *strings.Builder, ix, iy, sz float64, style NodeStyle, indent string) {
+	fill := escapeXML(style.Fill)
+	stroke, sw := iconStroke(style)
+	dash := dashAttr(style.StrokeDash)
+	cx := ix + sz/2
+
+	headR := sz * 0.22
+	headCY := iy + sz*0.27
+	neckY := headCY + headR
+	neckW := headR * 0.8
+	bodyCtrlY := neckY + (iy+sz-neckY)*0.35
+	// Body drawn first so head circle renders on top, covering the neck seam
+	b.WriteString(fmt.Sprintf(
+		`%s  <path d="M%.1f,%.1f Q%.1f,%.1f %.1f,%.1f L%.1f,%.1f Q%.1f,%.1f %.1f,%.1f Z" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+		indent,
+		cx-neckW, neckY, // neck-left (start)
+		ix+sz*0.05, bodyCtrlY, ix+sz*0.05, iy+sz, // left shoulder curve → bottom-left
+		ix+sz*0.95, iy+sz, // bottom-right
+		ix+sz*0.95, bodyCtrlY, cx+neckW, neckY, // right shoulder curve → neck-right
+		fill, stroke, sw, dash,
+	))
+	// Head circle (on top)
+	b.WriteString(fmt.Sprintf(
+		`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+		indent, cx, headCY, headR, fill, stroke, sw, dash,
+	))
+}
+
+// renderBotIcon draws a robot icon (antenna + face + eyes) within the given box.
+func renderBotIcon(b *strings.Builder, ix, iy, sz float64, style NodeStyle, indent string) {
+	fill := escapeXML(style.Fill)
+	stroke, sw := iconStroke(style)
+	dash := dashAttr(style.StrokeDash)
+	cx := ix + sz/2
+
+	antennaH := sz * 0.15
+	faceH := sz - antennaH
+	faceTop := iy + antennaH
+	ballR := sz * 0.05
+	ballCY := iy + ballR
+	eyeR := sz * 0.07
+	eyeY := faceTop + faceH*0.38
+	// Antenna line
+	b.WriteString(fmt.Sprintf(
+		`%s  <line x1="%.1f" y1="%.1f" x2="%.1f" y2="%.1f" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+		indent, cx, faceTop, cx, ballCY+ballR, stroke, sw, dash,
+	))
+	// Antenna ball
+	b.WriteString(fmt.Sprintf(
+		`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" stroke-width="%.0f"%s/>`+"\n",
+		indent, cx, ballCY, ballR, stroke, stroke, sw, dash,
+	))
+	// Face (rounded rectangle)
+	b.WriteString(fmt.Sprintf(
+		`%s  <rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" fill="%s" stroke="%s" stroke-width="%.0f" rx="8"%s/>`+"\n",
+		indent, ix, faceTop, sz, faceH, fill, stroke, sw, dash,
+	))
+	// Left eye
+	b.WriteString(fmt.Sprintf(
+		`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
+		indent, cx-sz*0.2, eyeY, eyeR, stroke,
+	))
+	// Right eye
+	b.WriteString(fmt.Sprintf(
+		`%s  <circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="none"/>`+"\n",
+		indent, cx+sz*0.2, eyeY, eyeR, stroke,
+	))
 }
 
 func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absoluteNode, ancestorAbsX, ancestorAbsY float64, indent string) {
@@ -546,15 +641,20 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	}
 	pointsStr := ptsBuf.String()
 
+	fwdMarker := markerID(edge.Style.Stroke, false)
+	revMarker := markerID(edge.Style.Stroke, true)
+
 	var markerStart, markerEnd string
 	switch edge.Direction {
+	case "none":
+		// no arrows
 	case "reverse":
-		markerStart = ` marker-start="url(#arrowhead-start)"`
+		markerStart = fmt.Sprintf(` marker-start="url(#%s)"`, revMarker)
 	case "bidirectional":
-		markerStart = ` marker-start="url(#arrowhead-start)"`
-		markerEnd = ` marker-end="url(#arrowhead)"`
+		markerStart = fmt.Sprintf(` marker-start="url(#%s)"`, revMarker)
+		markerEnd = fmt.Sprintf(` marker-end="url(#%s)"`, fwdMarker)
 	default: // "" or "forward"
-		markerEnd = ` marker-end="url(#arrowhead)"`
+		markerEnd = fmt.Sprintf(` marker-end="url(#%s)"`, fwdMarker)
 	}
 
 	b.WriteString(fmt.Sprintf(
@@ -571,9 +671,10 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	))
 
 	// Visible polyline
+	edgeDash := dashAttr(edge.Style.StrokeDash)
 	b.WriteString(fmt.Sprintf(
-		`%s  <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s/>`+"\n",
-		indent, pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, markerStart, markerEnd,
+		`%s  <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s%s/>`+"\n",
+		indent, pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, edgeDash, markerStart, markerEnd,
 	))
 
 	// Waypoint handle circles
@@ -637,4 +738,37 @@ func escapeXML(s string) string {
 	s = strings.ReplaceAll(s, ">", "&gt;")
 	s = strings.ReplaceAll(s, `"`, "&quot;")
 	return s
+}
+
+// sanitizeColorID converts a CSS color string into a safe XML ID fragment.
+// e.g. "#333333" -> "333333", "green" -> "green", "rgb(1,2,3)" -> "rgb-1-2-3"
+func sanitizeColorID(color string) string {
+	color = strings.TrimPrefix(color, "#")
+	var b strings.Builder
+	for _, c := range color {
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			b.WriteRune(c)
+		} else {
+			b.WriteRune('-')
+		}
+	}
+	return b.String()
+}
+
+// markerID returns the marker element ID for the given color and direction.
+func markerID(color string, start bool) string {
+	suffix := sanitizeColorID(color)
+	if start {
+		return "arrowhead-start-" + suffix
+	}
+	return "arrowhead-" + suffix
+}
+
+// collectEdgeColors returns the set of unique stroke colors used by edges.
+func collectEdgeColors(edges []*LayoutEdge) map[string]bool {
+	colors := make(map[string]bool)
+	for _, e := range edges {
+		colors[e.Style.Stroke] = true
+	}
+	return colors
 }

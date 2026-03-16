@@ -776,7 +776,7 @@ func TestLexRawBlock_Multiline(t *testing.T) {
 		t.Fatal(err)
 	}
 	expectTokens(t, tokens,
-		Token{Type: TokenRawBlock, Value: "line1\n  line2"},
+		Token{Type: TokenRawBlock, Value: "line1\nline2"},
 		Token{Type: TokenEOF},
 	)
 }

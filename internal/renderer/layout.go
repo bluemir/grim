@@ -25,6 +25,8 @@ const (
 	iconNodeW  = 60.0 // icon area width
 	iconNodeH  = 60.0 // icon area height
 	iconLabelH = 20.0 // label area below icon
+
+	lineHeight = 20.0 // height per line for multiline text
 )
 
 // NodeStyle holds visual properties for a node.
@@ -48,16 +50,17 @@ type Point struct{ X, Y float64 }
 
 // LayoutNode represents a positioned node ready for SVG rendering.
 type LayoutNode struct {
-	ID       string
-	Line     int
-	Label    string
-	X, Y     float64
-	W, H     float64
-	Fixed    bool
-	Shape    string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
-	Stack    int    // number of stacked shadow copies (0 or 1 = no shadow)
-	Style    NodeStyle
-	Children []*LayoutNode
+	ID         string
+	Line       int
+	Label      string
+	TextFormat string // "" or "plain" = plain text, "markdown" = markdown
+	X, Y       float64
+	W, H       float64
+	Fixed      bool
+	Shape      string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
+	Stack      int    // number of stacked shadow copies (0 or 1 = no shadow)
+	Style      NodeStyle
+	Children   []*LayoutNode
 }
 
 // LayoutEdge represents a positioned edge ready for SVG rendering.
@@ -193,6 +196,7 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 	// Extract label from shorthand
 	if decl.Label != nil {
 		node.Label = decl.Label.Value
+		node.TextFormat = decl.Label.Format
 	}
 
 	// Process block metadata and children
@@ -218,6 +222,7 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 				applyNodeStyle(&node.Style, m.Values)
 			case *parser.TextMeta:
 				node.Label = m.Value
+				node.TextFormat = m.Format
 			case *parser.ShapeMeta:
 				node.Shape = m.Value
 			}
@@ -319,9 +324,16 @@ func buildEdge(decl *parser.EdgeDecl) *LayoutEdge {
 }
 
 func computeNodeSize(label string, children []*LayoutNode) (float64, float64) {
-	textW := float64(len(label))*charWidth + nodePadX
+	lines := strings.Split(label, "\n")
+	maxLen := 0
+	for _, l := range lines {
+		if len(l) > maxLen {
+			maxLen = len(l)
+		}
+	}
+	textW := float64(maxLen)*charWidth + nodePadX
 	w := math.Max(defaultNodeW, textW)
-	h := defaultNodeH
+	h := math.Max(defaultNodeH, nodePadY*2+float64(len(lines))*lineHeight)
 
 	if len(children) > 0 {
 		// Parent node needs to be bigger to contain children
@@ -466,7 +478,14 @@ func layoutChildren(parent *LayoutNode) {
 	}
 
 	// Recalculate parent size from actual child positions
-	textW := float64(len(parent.Label))*charWidth + nodePadX
+	lines := strings.Split(parent.Label, "\n")
+	maxLen := 0
+	for _, l := range lines {
+		if len(l) > maxLen {
+			maxLen = len(l)
+		}
+	}
+	textW := float64(maxLen)*charWidth + nodePadX
 	parent.W = math.Max(defaultNodeW, textW)
 	parent.H = labelHeight + nestedPadding // minimum: label area + bottom padding
 

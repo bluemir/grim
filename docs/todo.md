@@ -53,7 +53,9 @@
 - [ ] 중첩된 node 내에서도 12 grid 기반 자동 배치 지원
 - [x] 편집창에서 좌측 textarea 영역만 스크롤 우측은 주어진 크기에 꽉 차게
 - [x] `@shape` 에 user , bot 추가
-- [x] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
+- [ ] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
+	- 선택시 선택된것을 표시
+	- textarea 가 선택된 상태가 되긴 하나 해당 선택 구역으로 scroll 되지 않음. 스크롤 되도록 해야 함
 - [x] access log 에서 특정 endpoint 는 query 를 찍지 않기
 	- editor, viewer 는 data query 를 찍기 않도록
 	- 실제 데이터라 너무 긴데, 서버에게 의미는 없음.
@@ -66,3 +68,4 @@
 - [x] bug: 휠이 zoom in만 되고 zoom out 이 안됨
 - [x] editor 와 viewer 는 화면이 좌우 여백 없이 꽉 차야 함.
 - [ ] undo/redo 단축키
+- [ ] iso render 추가

@@ -396,7 +396,7 @@ type lexRawBlock struct{}
 
 func (lexRawBlock) Handle(l *Lexer, ch rune) (LexState, error) {
 	if ch == 0 {
-		l.emit(TokenRawBlock, strings.TrimSpace(l.bufString()))
+		l.emit(TokenRawBlock, dedent(l.bufString()))
 		return lexDefault{}, &ParseError{
 			Line:    l.start.line,
 			Col:     l.start.col,
@@ -406,7 +406,7 @@ func (lexRawBlock) Handle(l *Lexer, ch rune) (LexState, error) {
 	if ch == '|' && l.peekAt(1) == '}' {
 		l.advance() // consume |
 		l.advance() // consume }
-		l.emit(TokenRawBlock, strings.TrimSpace(l.bufString()))
+		l.emit(TokenRawBlock, dedent(l.bufString()))
 		return lexDefault{}, nil
 	}
 	l.buf = append(l.buf, ch)
@@ -415,6 +415,41 @@ func (lexRawBlock) Handle(l *Lexer, ch rune) (LexState, error) {
 }
 
 // --- helpers ---
+
+// dedent removes the common leading whitespace from all non-empty lines,
+// and strips leading/trailing blank lines.
+func dedent(s string) string {
+	lines := strings.Split(s, "\n")
+	// Strip leading blank lines
+	for len(lines) > 0 && strings.TrimSpace(lines[0]) == "" {
+		lines = lines[1:]
+	}
+	// Strip trailing blank lines
+	for len(lines) > 0 && strings.TrimSpace(lines[len(lines)-1]) == "" {
+		lines = lines[:len(lines)-1]
+	}
+	if len(lines) == 0 {
+		return ""
+	}
+	// Find minimum indentation of non-empty lines
+	minIndent := -1
+	for _, line := range lines {
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+		indent := len(line) - len(strings.TrimLeft(line, " \t"))
+		if minIndent < 0 || indent < minIndent {
+			minIndent = indent
+		}
+	}
+	for i, line := range lines {
+		if minIndent > 0 && len(line) >= minIndent {
+			line = line[minIndent:]
+		}
+		lines[i] = strings.TrimRight(line, " \t")
+	}
+	return strings.Join(lines, "\n")
+}
 
 func isIdentStart(ch rune) bool {
 	return unicode.IsLetter(ch) || ch == '_'

@@ -1,9 +1,17 @@
 package renderer
 
 import (
+	"bytes"
 	"fmt"
 	"math"
 	"strings"
+
+	"github.com/yuin/goldmark"
+	"github.com/yuin/goldmark/extension"
+)
+
+var mdRenderer = goldmark.New(
+	goldmark.WithExtensions(extension.GFM),
 )
 
 const defaultGap = 4.0
@@ -84,21 +92,11 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 
 	// Label text
 	if node.Label != "" {
-		textX := absX + node.W/2
-		var textY float64
-		switch {
-		case node.Shape == "user" || node.Shape == "bot":
-			// Label below the icon area
-			textY = absY + (node.H - iconLabelH) + iconLabelH/2 + node.Style.FontSize/2 - 2
-		case len(node.Children) > 0:
-			textY = absY + labelHeight/2 + node.Style.FontSize/2 - 2
-		default:
-			textY = absY + node.H/2 + node.Style.FontSize/2 - 2
+		if node.TextFormat == "markdown" {
+			renderMarkdownLabel(b, node, absX, absY, indent)
+		} else {
+			renderPlainTextLabel(b, node, absX, absY, indent)
 		}
-		b.WriteString(fmt.Sprintf(
-			`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
-			indent, textX, textY, node.Style.FontSize, escapeXML(node.Style.FontColor), escapeXML(node.Label),
-		))
 	}
 
 	// Separator line between label and children area
@@ -116,6 +114,90 @@ func renderNode(b *strings.Builder, node *LayoutNode, absX, absY float64, indent
 	}
 
 	b.WriteString(fmt.Sprintf("%s</g>\n", indent))
+}
+
+func renderMarkdownLabel(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
+	var htmlBuf bytes.Buffer
+	if err := mdRenderer.Convert([]byte(node.Label), &htmlBuf); err != nil {
+		// Fallback to plain text on error
+		b.WriteString(fmt.Sprintf(
+			`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
+			indent, absX+node.W/2, absY+node.H/2+node.Style.FontSize/2-2,
+			node.Style.FontSize, escapeXML(node.Style.FontColor), escapeXML(node.Label),
+		))
+		return
+	}
+
+	var foX, foY, foW, foH float64
+	switch {
+	case node.Shape == "user" || node.Shape == "bot":
+		foY = absY + (node.H - iconLabelH)
+		foH = iconLabelH
+	case len(node.Children) > 0:
+		foY = absY + 2
+		foH = labelHeight - 4
+	default:
+		foY = absY + 4
+		foH = node.H - 8
+	}
+	foX = absX + 4
+	foW = node.W - 8
+
+	b.WriteString(fmt.Sprintf(
+		`%s  <foreignObject x="%.1f" y="%.1f" width="%.1f" height="%.1f">`+"\n",
+		indent, foX, foY, foW, foH,
+	))
+	b.WriteString(fmt.Sprintf(
+		`%s    <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:%.0fpx;color:%s;overflow:hidden;padding:2px;box-sizing:border-box;width:100%%;height:100%%">`+"\n",
+		indent, node.Style.FontSize, node.Style.FontColor,
+	))
+	b.WriteString(`<style>*{margin:0;padding:0;box-sizing:border-box}` +
+		`h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:bold}` +
+		`p,li{line-height:1.4}` +
+		`ul,ol{padding-left:1.5em}</style>` + "\n")
+	b.WriteString(htmlBuf.String())
+	b.WriteString(fmt.Sprintf("%s    </div>\n", indent))
+	b.WriteString(fmt.Sprintf("%s  </foreignObject>\n", indent))
+}
+
+func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
+	textX := absX + node.W/2
+	var centerY float64
+	switch {
+	case node.Shape == "user" || node.Shape == "bot":
+		centerY = absY + (node.H - iconLabelH) + iconLabelH/2 + node.Style.FontSize/2 - 2
+	case len(node.Children) > 0:
+		centerY = absY + labelHeight/2 + node.Style.FontSize/2 - 2
+	default:
+		centerY = absY + node.H/2 + node.Style.FontSize/2 - 2
+	}
+
+	lines := strings.Split(node.Label, "\n")
+	if len(lines) == 1 {
+		b.WriteString(fmt.Sprintf(
+			`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
+			indent, textX, centerY, node.Style.FontSize, escapeXML(node.Style.FontColor), escapeXML(node.Label),
+		))
+		return
+	}
+
+	// Multiline: shift first line up to center the block vertically
+	firstY := centerY - float64(len(lines)-1)*lineHeight/2
+	b.WriteString(fmt.Sprintf(
+		`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">`+"\n",
+		indent, textX, firstY, node.Style.FontSize, escapeXML(node.Style.FontColor),
+	))
+	for i, line := range lines {
+		dy := "0"
+		if i > 0 {
+			dy = fmt.Sprintf("%.0f", lineHeight)
+		}
+		b.WriteString(fmt.Sprintf(
+			`%s    <tspan x="%.1f" dy="%s">%s</tspan>`+"\n",
+			indent, textX, dy, escapeXML(line),
+		))
+	}
+	b.WriteString(fmt.Sprintf("%s  </text>\n", indent))
 }
 
 func renderShape(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {

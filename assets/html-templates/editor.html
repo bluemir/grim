@@ -139,6 +139,9 @@
                 stroke: #4a90e2 !important;
             }
 
+            [data-anchor-handle] { opacity: 0; transition: opacity 0.1s; }
+            g[data-type="edge"]:hover [data-anchor-handle] { opacity: 1; }
+
             body[layout=one-page] [row] {
                 max-width: unset;
                 margin: 0 1rem;
@@ -172,6 +175,7 @@
                         <button id="zoom-reset" title="Reset zoom">Reset</button>
                         <button id="zoom-fit" title="Fit to view">Fit</button>
                         <button id="export-svg" title="Export as SVG">Export SVG</button>
+                        <button id="open-viewer" title="Open read-only viewer">Viewer</button>
                     </div>
                     <div class="svg-container" id="svg-container">
                         <!-- svg -->
@@ -210,6 +214,7 @@
                 const svg = grimRender(editor.value);
                 svgContainer.innerHTML = svg;
                 applyZoom();
+                attachEdgeHandles();
                 updateURL();
                 // Restore selected node class after re-render
                 if (selectedGroup) {
@@ -281,6 +286,57 @@
                 zoomLevelEl.textContent = `${Math.round(zoomScale * 100)}%`;
             }
 
+            function attachEdgeHandles() {
+                svgContainer.querySelectorAll("g[data-type='edge']").forEach(edgeGroup => {
+                    // Waypoint circles
+                    const wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
+                    for (let i = 0; i < wps.length; i++) {
+                        const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                        circle.dataset.waypointIdx = i;
+                        circle.setAttribute("cx", wps[i].x.toFixed(1));
+                        circle.setAttribute("cy", wps[i].y.toFixed(1));
+                        circle.setAttribute("r", "4");
+                        circle.setAttribute("fill", "#4a90e2");
+                        circle.setAttribute("stroke", "white");
+                        circle.setAttribute("stroke-width", "1.5");
+                        circle.style.cursor = "pointer";
+                        edgeGroup.appendChild(circle);
+                    }
+
+                    // Anchor handles from polyline endpoints
+                    const polyline = edgeGroup.querySelector("polyline:nth-child(2)");
+                    if (!polyline) return;
+                    const points = polyline.points;
+                    if (points.length < 2) return;
+                    const first = points[0];
+                    const last = points[points.length - 1];
+
+                    const fromCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    fromCircle.dataset.anchorFrom = "";
+                    fromCircle.setAttribute("cx", first.x.toFixed(1));
+                    fromCircle.setAttribute("cy", first.y.toFixed(1));
+                    fromCircle.setAttribute("r", "5");
+                    fromCircle.setAttribute("fill", "#e8801a");
+                    fromCircle.setAttribute("stroke", "white");
+                    fromCircle.setAttribute("stroke-width", "1.5");
+                    fromCircle.dataset.anchorHandle = "";
+                    fromCircle.style.cursor = "crosshair";
+                    edgeGroup.appendChild(fromCircle);
+
+                    const toCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    toCircle.dataset.anchorTo = "";
+                    toCircle.setAttribute("cx", last.x.toFixed(1));
+                    toCircle.setAttribute("cy", last.y.toFixed(1));
+                    toCircle.setAttribute("r", "5");
+                    toCircle.setAttribute("fill", "#2a9a2a");
+                    toCircle.setAttribute("stroke", "white");
+                    toCircle.setAttribute("stroke-width", "1.5");
+                    toCircle.dataset.anchorHandle = "";
+                    toCircle.style.cursor = "crosshair";
+                    edgeGroup.appendChild(toCircle);
+                });
+            }
+
             function zoomTo(newScale) {
                 zoomScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
                 applyZoom();
@@ -350,6 +406,17 @@
                 a.download = "diagram.svg";
                 a.click();
                 URL.revokeObjectURL(url);
+            });
+
+            // --- Open Viewer ---
+
+            document.getElementById("open-viewer").addEventListener("click", () => {
+                const url = new URL("/view", window.location.origin);
+                const dataParam = new URLSearchParams(window.location.search).get("data");
+                if (dataParam) {
+                    url.searchParams.set("data", dataParam);
+                }
+                window.open(url, "_blank");
             });
 
             // --- WASD 부드러운 스크롤 ---

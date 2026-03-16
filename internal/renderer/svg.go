@@ -47,10 +47,6 @@ func RenderSVG(layout *LayoutResult) string {
 			revID, safeColor,
 		))
 	}
-	b.WriteString(`    <style>` + "\n")
-	b.WriteString(`      [data-anchor-handle] { opacity: 0; transition: opacity 0.1s; }` + "\n")
-	b.WriteString(`      g[data-type="edge"]:hover [data-anchor-handle] { opacity: 1; }` + "\n")
-	b.WriteString(`    </style>` + "\n")
 	b.WriteString(`  </defs>` + "\n")
 
 	// Build a flat node map for edge endpoint lookup (with absolute positions)
@@ -675,24 +671,6 @@ func renderEdge(b *strings.Builder, edge *LayoutEdge, nodeMap map[string]*absolu
 	b.WriteString(fmt.Sprintf(
 		`%s  <polyline points="%s" fill="none" stroke="%s" stroke-width="%.0f"%s%s%s/>`+"\n",
 		indent, pointsStr, escapeXML(edge.Style.Stroke), edge.Style.StrokeWidth, edgeDash, markerStart, markerEnd,
-	))
-
-	// Waypoint handle circles
-	for i, wp := range edge.Waypoints {
-		b.WriteString(fmt.Sprintf(
-			`%s  <circle data-waypoint-idx="%d" cx="%.1f" cy="%.1f" r="4" fill="#4a90e2" stroke="white" stroke-width="1.5" style="cursor:pointer"/>`+"\n",
-			indent, i, wp.X, wp.Y,
-		))
-	}
-
-	// Anchor handle circles (from=orange, to=green); hidden until edge hover via CSS
-	b.WriteString(fmt.Sprintf(
-		`%s  <circle data-anchor-from="" cx="%.1f" cy="%.1f" r="5" fill="#e8801a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
-		indent, x1, y1,
-	))
-	b.WriteString(fmt.Sprintf(
-		`%s  <circle data-anchor-to="" cx="%.1f" cy="%.1f" r="5" fill="#2a9a2a" stroke="white" stroke-width="1.5" data-anchor-handle="" style="cursor:crosshair"/>`+"\n",
-		indent, x2, y2,
 	))
 
 	// Edge label at midpoint of points list

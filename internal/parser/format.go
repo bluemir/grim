@@ -118,7 +118,7 @@ func writeMetadata(sb *strings.Builder, meta Metadata, depth int) {
 			sb.WriteString(m.Format)
 			sb.WriteString("] ")
 		}
-		writeTextContent(sb, m.Value)
+		writeTextContent(sb, m.Value, depth)
 	case *EdgeMeta:
 		sb.WriteString("@edge ")
 		writeJSONObject(sb, m.Values, "edge")
@@ -141,11 +141,24 @@ func writeTextValue(sb *strings.Builder, tv *TextValue) {
 }
 
 // writeTextContent writes @text value: raw block for multiline, quoted string otherwise.
-func writeTextContent(sb *strings.Builder, value string) {
+// Multiline output format:
+//
+//	{|
+//	<depth+1 tabs>line1
+//	<depth+1 tabs>line2
+//	<depth tabs>|}
+func writeTextContent(sb *strings.Builder, value string, depth int) {
 	if strings.Contains(value, "\n") {
-		sb.WriteString("{| ")
-		sb.WriteString(value)
-		sb.WriteString(" |}")
+		sb.WriteString("{|\n")
+		for _, line := range strings.Split(value, "\n") {
+			if strings.TrimSpace(line) != "" {
+				writeIndent(sb, depth+1)
+				sb.WriteString(line)
+			}
+			sb.WriteByte('\n')
+		}
+		writeIndent(sb, depth)
+		sb.WriteString("|}")
 	} else {
 		sb.WriteString(`"`)
 		sb.WriteString(escapeString(value))

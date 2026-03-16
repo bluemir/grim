@@ -116,6 +116,18 @@ func TestFormat(t *testing.T) {
 }`,
 			want: "n {\n\t@text[markdown] \"**bold**\"\n}\n",
 		},
+		{
+			name: "text metadata multiline raw block",
+			input: `n {
+	@text[markdown] {|
+		## header
+
+		- list
+			- list2
+	|}
+}`,
+			want: "n {\n\t@text[markdown] {|\n\t\t## header\n\n\t\t- list\n\t\t\t- list2\n\t|}\n}\n",
+		},
 
 		// --- Nested blocks ---
 		{
@@ -197,6 +209,7 @@ func TestFormatIdempotent(t *testing.T) {
 		"n {\n\t@style {font-color: white, fill: blue}\n}",
 		"n {\n\t@text \"hello\"\n}",
 		"n {\n\t@text[markdown] \"**bold**\"\n}",
+		"n {\n\t@text[markdown] {|\n\t\t## header\n\n\t\t- list\n\t\t\t- list2\n\t|}\n}\n",
 		"parent {\n\tchild\n}\n",
 		"A\n\nB",
 		"# comment\nA\n\nB -> C\n",

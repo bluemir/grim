@@ -37,6 +37,7 @@
                 resize: none;
                 field-sizing: normal;
                 box-sizing: border-box;
+                padding: 0.2rem;
             }
 
             [col="6"]:has(textarea) {
@@ -129,12 +130,11 @@
             }
 
             /* Selected node highlight */
-            .svg-container g[data-id].selected > rect:first-of-type {
-                stroke: #4a90e2 !important;
-                stroke-width: 3 !important;
-            }
-            .svg-container g[data-id].selected > foreignObject > * {
-                outline: 2px solid #4a90e2;
+            .selection-outline {
+                fill: none;
+                stroke: #4a90e2;
+                stroke-width: 3;
+                pointer-events: none;
             }
 
             /* Selected edge highlight */
@@ -174,6 +174,7 @@
                         <button id="zoom-in" title="Zoom in">+</button>
                         <button id="zoom-reset" title="Reset zoom">Reset</button>
                         <button id="zoom-fit" title="Fit to view">Fit</button>
+                        <button id="export-svg" title="Export as SVG">Export SVG</button>
                     </div>
                     <div class="svg-container" id="svg-container">
                         <!-- svg -->
@@ -322,6 +323,38 @@
                 }
             }, { passive: false });
 
+            // --- Export SVG ---
+
+            document.getElementById("export-svg").addEventListener("click", () => {
+                const svg = svgContainer.querySelector("svg");
+                if (!svg) return;
+
+                // Clone SVG and remove editor-only elements
+                const clone = svg.cloneNode(true);
+                clone.querySelectorAll(
+                    ".resize-handle, .selection-outline, .resize-size-label"
+                ).forEach(el => el.remove());
+
+                // Restore original size from viewBox
+                const vb = svg.viewBox.baseVal;
+                clone.setAttribute("width", vb.width);
+                clone.setAttribute("height", vb.height);
+
+                // Serialize with XML declaration
+                const serializer = new XMLSerializer();
+                const svgString = '<?xml version="1.0" encoding="UTF-8"?>\n'
+                    + serializer.serializeToString(clone);
+
+                // Download as file
+                const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = "diagram.svg";
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+
             // --- WASD 부드러운 스크롤 ---
 
             const SCROLL_SPEED = 5;
@@ -402,6 +435,16 @@
                 removeResizeHandles();
                 const w = parseFloat(group.dataset.w);
                 const h = parseFloat(group.dataset.h);
+
+                // Selection outline rect (visible blue border around entire node)
+                const outline = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                outline.setAttribute("x", 0);
+                outline.setAttribute("y", 0);
+                outline.setAttribute("width", w);
+                outline.setAttribute("height", h);
+                outline.classList.add("selection-outline");
+                group.appendChild(outline);
+
                 const ht = HANDLE_SIZE; // hit area thickness
                 // Each handle covers the full length of its side (local coords: node shape at 0,0)
                 const sides = [
@@ -423,7 +466,7 @@
             }
 
             function removeResizeHandles() {
-                svgContainer.querySelectorAll(".resize-handle").forEach(el => el.remove());
+                svgContainer.querySelectorAll(".resize-handle, .selection-outline").forEach(el => el.remove());
             }
 
             function repositionResizeHandles(group, x, y, w, h) {

@@ -361,6 +361,8 @@
             const MIN_NODE_W = 40;
             const MIN_NODE_H = 24;
             const HANDLE_SIZE = 8;
+            const NESTED_PADDING = 16;  // must match nestedPadding in layout.go
+            const LABEL_HEIGHT = 24;    // must match labelHeight in layout.go
 
             function snapToGrid(value, altKey) {
                 if (altKey) return Math.round(value);
@@ -473,6 +475,7 @@
                     const group = resizeHandleEl.closest("g[data-id]");
                     const svg = svgContainer.querySelector("svg");
                     if (!group || !svg) return;
+                    const resizeParentGroup = group.parentElement.closest("g[data-id]");
                     resizeDragState = {
                         svg, group,
                         dir: resizeHandleEl.dataset.resizeHandle,
@@ -481,6 +484,8 @@
                         origY: parseFloat(group.dataset.y),
                         origW: parseFloat(group.dataset.w),
                         origH: parseFloat(group.dataset.h),
+                        parentX: resizeParentGroup ? parseFloat(resizeParentGroup.dataset.x || 0) : null,
+                        parentY: resizeParentGroup ? parseFloat(resizeParentGroup.dataset.y || 0) : null,
                     };
                     e.preventDefault(); e.stopPropagation(); return;
                 }
@@ -618,9 +623,9 @@
                 let snapDx, snapDy;
                 if (dragState.parentX !== null) {
                     const snappedRelX = snapToGrid(rawAbsX - dragState.parentX, e.altKey);
-                    const snappedRelY = snapToGrid(rawAbsY - dragState.parentY, e.altKey);
+                    const snappedRelY = snapToGrid(rawAbsY - dragState.parentY - LABEL_HEIGHT, e.altKey);
                     snapDx = snappedRelX + dragState.parentX - dragState.origX;
-                    snapDy = snappedRelY + dragState.parentY - dragState.origY;
+                    snapDy = snappedRelY + dragState.parentY + LABEL_HEIGHT - dragState.origY;
                 } else {
                     snapDx = snapToGrid(rawAbsX, e.altKey) - dragState.origX;
                     snapDy = snapToGrid(rawAbsY, e.altKey) - dragState.origY;
@@ -630,7 +635,7 @@
 
             window.addEventListener("mouseup", (e) => {
                 if (resizeDragState) {
-                    const { svg, group, dir, startSVG, origX, origY, origW, origH } = resizeDragState;
+                    const { svg, group, dir, startSVG, origX, origY, origW, origH, parentX, parentY } = resizeDragState;
                     resizeDragState = null;
                     removeResizeSizeLabel();
                     const pt = getSVGPoint(svg, e.clientX, e.clientY);
@@ -648,6 +653,10 @@
                     } else if (dir === "n") {
                         newH = Math.max(MIN_NODE_H, snapToGrid(origH - dy, e.altKey));
                         newY = origY + (origH - newH);
+                    }
+                    if (parentX !== null) {
+                        newX -= parentX;
+                        newY -= parentY + LABEL_HEIGHT;
                     }
                     const id = group.dataset.id;
                     editor.value = grimSetNodeSize(editor.value, id, Math.round(newX), Math.round(newY), Math.round(newW), Math.round(newH));
@@ -726,7 +735,7 @@
                 let newX, newY;
                 if (parentX !== null) {
                     newX = snapToGrid(rawX - parentX, e.altKey);
-                    newY = snapToGrid(rawY - parentY, e.altKey);
+                    newY = snapToGrid(rawY - parentY - LABEL_HEIGHT, e.altKey);
                 } else {
                     newX = snapToGrid(rawX, e.altKey);
                     newY = snapToGrid(rawY, e.altKey);

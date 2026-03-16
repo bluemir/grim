@@ -381,3 +381,30 @@ func TestRenderSVGHasViewBox(t *testing.T) {
 		t.Error("expected viewBox attribute on svg")
 	}
 }
+
+func TestFixedChildAtZeroZeroIsBelowHeader(t *testing.T) {
+	doc, err := parser.Parse(`parent: {
+  child: {
+    @layout {x: 0, y: 0}
+  }
+}`)
+	if err != nil {
+		t.Fatalf("parse error: %v", err)
+	}
+	layout := BuildLayout(doc)
+	if len(layout.Nodes) == 0 {
+		t.Fatal("expected at least one node")
+	}
+	parent := layout.Nodes[0]
+	if len(parent.Children) == 0 {
+		t.Fatal("expected parent to have a child")
+	}
+	child := parent.Children[0]
+	// Fixed children use (0, labelHeight) as content-area origin — no padding
+	if child.X != 0 {
+		t.Errorf("expected child.X=0, got %v", child.X)
+	}
+	if child.Y != labelHeight {
+		t.Errorf("expected child.Y=%v, got %v", labelHeight, child.Y)
+	}
+}

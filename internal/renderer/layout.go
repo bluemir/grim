@@ -469,9 +469,13 @@ func layoutChildren(parent *LayoutNode) {
 	}
 	layoutGrid(unfixed, interiorW, 0)
 
-	// Offset all children relative to parent's content area
+	// Offset all children relative to parent's content area.
+	// Fixed children (manual @layout) use only the header height as origin.
+	// Auto-layout children additionally get nestedPadding on both axes.
 	for _, child := range parent.Children {
-		if !child.Fixed {
+		if child.Fixed {
+			child.Y += labelHeight
+		} else {
 			child.X += nestedPadding
 			child.Y += labelHeight + nestedPadding
 		}

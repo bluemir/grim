@@ -98,6 +98,7 @@
                     <button id="zoom-reset" title="Reset zoom">Reset</button>
                     <button id="zoom-fit" title="Fit to view">Fit</button>
                     <button id="export-svg" title="Export as SVG">Export SVG</button>
+                    <button id="open-editor" title="Open in editor">Edit</button>
                 </div>
                 <div class="svg-container" id="svg-container">
                     <!-- svg -->
@@ -318,6 +319,16 @@
                 a.download = "diagram.svg";
                 a.click();
                 URL.revokeObjectURL(url);
+            });
+
+            // --- Open Editor ---
+            document.getElementById("open-editor").addEventListener("click", () => {
+                const url = new URL("/editor", window.location.origin);
+                const dataParam = params.get("data");
+                if (dataParam) {
+                    url.searchParams.set("data", dataParam);
+                }
+                window.open(url.toString(), "_blank");
             });
 
             // 초기 줌 적용

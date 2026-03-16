@@ -774,6 +774,31 @@
                     newY = snapToGrid(rawY, e.altKey);
                 }
 
+                // Compute absolute SVG delta. origX/origY are always absolute (from data-x/y).
+                // For child nodes newX/newY are relative-to-parent, so restore absolute coords.
+                const absNewX = parentX !== null ? newX + parentX : newX;
+                const absNewY = parentX !== null ? newY + parentY + LABEL_HEIGHT : newY;
+                const dx = absNewX - origX;
+                const dy = absNewY - origY;
+
+                // Translate waypoints of connected edges (edge waypoints are absolute coords).
+                if (dx !== 0 || dy !== 0) {
+                    svgContainer.querySelectorAll("g[data-type='edge']").forEach(edgeGroup => {
+                        const fromId = edgeGroup.dataset.fromId || "";
+                        const toId   = edgeGroup.dataset.toId   || "";
+                        const connected = fromId === id || toId === id ||
+                            fromId.startsWith(id + '.') || toId.startsWith(id + '.');
+                        if (!connected) return;
+
+                        const wps = JSON.parse(edgeGroup.dataset.waypoints || "[]");
+                        if (wps.length === 0) return;
+
+                        const line = parseInt(edgeGroup.dataset.line, 10);
+                        const translated = wps.map(wp => ({ x: wp.x + dx, y: wp.y + dy }));
+                        editor.value = grimSetEdgeWaypoints(editor.value, line, translated);
+                    });
+                }
+
                 editor.value = grimSetLayout(editor.value, id, newX, newY);
                 render();
             });

@@ -10,7 +10,7 @@
 - [ ] 엣지 gap 커스터마이징
 - [ ] 엣지 히트박스 — 투명한 두꺼운 path 겹치기
 - [ ] 엣지 스타일 — stroke-dash, arrow 종류(triangle, diamond, none)
-- [ ] 노드 스타일 — stroke-dash, shadow, opacity, border-radius
+- [x] 노드 스타일 — stroke-dash, shadow, opacity, border-radius
 - [ ] SVG/PNG 다운로드 export
 	- `/export?kind=svg&data={data}` 로 svg 랜더링 된 내용만 내려주기
 - [ ] 공유 URL — /view?data={base64} 읽기 전용 뷰

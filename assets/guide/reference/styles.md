@@ -21,7 +21,7 @@ my-node
 | `opacity` | 투명도 (0~1) | `0.5` |
 | `font-size` | 텍스트 크기 (px) | `14` |
 | `font-color` | 텍스트 색상 | `white`, `#fff` |
-| `border-radius` | 모서리 둥글기 (px) | `8` |
+| `border-radius` | 모서리 둥글기 (px, `rectangle`·`rounded` 모양만 적용) | `8` |
 
 ---
 

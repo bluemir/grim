@@ -16,7 +16,7 @@ my-node
 | `fill` | 배경 색상 | `blue-500`, `#3498db`, `transparent` |
 | `stroke` | 테두리 색상 | `black`, `#333` |
 | `stroke-width` | 테두리 두께 (px) | `2` |
-| `stroke-dash` | 테두리 점선 패턴 | `5,3` |
+| `dash` | 테두리 점선 패턴 | `5,3` |
 | `shadow` | 그림자 크기 (px, 0이면 없음) | `3` |
 | `opacity` | 투명도 (0~1) | `0.5` |
 | `font-size` | 텍스트 크기 (px) | `14` |
@@ -29,7 +29,7 @@ my-node
 
 ```grim
 A -> B {
-    @style {stroke: red, stroke-width: 2, stroke-dash: 5,3}
+    @style {stroke: red, stroke-width: 2, dash: 5,3}
 }
 ```
 
@@ -37,7 +37,7 @@ A -> B {
 |------|------|---------|
 | `stroke` | 선 색상 | `red`, `#333` |
 | `stroke-width` | 선 두께 (px) | `2` |
-| `stroke-dash` | 점선 패턴 | `5,3` |
+| `dash` | 점선 패턴 | `5,3` |
 | `arrow` | 화살표 모양 | `triangle`, `diamond`, `none` |
 
 ---
@@ -114,11 +114,11 @@ primary-node: "강조 표시"
 disabled-node: "비활성"
 
 # 점선 테두리
-@style {stroke: red-500, stroke-dash: 5,3, fill: transparent}
+@style {stroke: red-500, dash: 5,3, fill: transparent}
 boundary: "경계선"
 
 # 점선 엣지
 A -> B {
-    @style {stroke: blue-300, stroke-dash: 4,4, stroke-width: 2}
+    @style {stroke: blue-300, dash: 4,4, stroke-width: 2}
 }
 ```

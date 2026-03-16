@@ -107,6 +107,11 @@ func (stateAfterIdent) Handle(p *Parser, tok Token) (ParseState, error) {
 		p.edgeDirection = "bidirectional"
 		return stateEdgeTarget{}, nil
 
+	case TokenLine:
+		p.edgeFrom = copyPath(p.pathBuf)
+		p.edgeDirection = "none"
+		return stateEdgeTarget{}, nil
+
 	case TokenColon:
 		return stateAfterColon{
 			path:   copyPath(p.pathBuf),

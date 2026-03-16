@@ -18,6 +18,7 @@ const (
 	TokenArrow        // ->
 	TokenReverseArrow // <-
 	TokenBiArrow      // <->
+	TokenLine         // --
 	TokenLBrace
 	TokenRBrace
 	TokenLBracket
@@ -40,6 +41,7 @@ var tokenNames = map[TokenType]string{
 	TokenArrow:        "Arrow",
 	TokenReverseArrow: "ReverseArrow",
 	TokenBiArrow:      "BiArrow",
+	TokenLine:         "Line",
 	TokenLBrace:       "LBrace",
 	TokenRBrace:       "RBrace",
 	TokenLBracket:     "LBracket",
@@ -211,6 +213,13 @@ func (lexDefault) Handle(l *Lexer, ch rune) (LexState, error) {
 		l.bufReset()
 		return lexString{}, nil
 
+	case ch == '-' && l.peekAt(1) == '-':
+		l.markStart()
+		l.advance()
+		l.advance()
+		l.emit(TokenLine, "--")
+		return lexDefault{}, nil
+
 	case ch == '-' && l.peekAt(1) == '>':
 		l.markStart()
 		l.advance()
@@ -312,8 +321,8 @@ func (lexIdent) Handle(l *Lexer, ch rune) (LexState, error) {
 		l.emit(TokenIdent, l.bufString())
 		return lexDefault{}, nil
 	}
-	// Hyphen followed by > means arrow — flush identifier before it.
-	if ch == '-' && l.peekAt(1) == '>' {
+	// Hyphen followed by > means arrow, -- means line — flush identifier before it.
+	if ch == '-' && (l.peekAt(1) == '>' || l.peekAt(1) == '-') {
 		l.emit(TokenIdent, l.bufString())
 		return lexDefault{}.Handle(l, ch)
 	}

@@ -21,12 +21,9 @@ const (
 	nestedPadding  = 16.0 // padding inside parent node for children
 	labelHeight    = 24.0 // height reserved for parent label at top
 
-	// Icon shapes (user, bot): fixed-proportion icon with label below
-	iconNodeW  = 60.0 // icon area width
-	iconNodeH  = 60.0 // icon area height
-	iconLabelH = 20.0 // label area below icon
-
 	lineHeight = 20.0 // height per line for multiline text
+
+	iconGap = 4.0 // gap between @icon image and label text
 )
 
 // NodeStyle holds visual properties for a node.
@@ -46,6 +43,7 @@ type NodeStyle struct {
 type EdgeStyle struct {
 	Stroke      string
 	StrokeWidth float64
+	StrokeDash  string // "" = solid; e.g. "5,3"
 	FontSize    float64
 }
 
@@ -65,6 +63,12 @@ type LayoutNode struct {
 	Stack      int    // number of stacked shadow copies (0 or 1 = no shadow)
 	Style      NodeStyle
 	Children   []*LayoutNode
+
+	// Icon overlay (from @icon directive)
+	IconURL      string  // "" = no icon; external image URL
+	IconKind     string  // "" = none; built-in icon kind ("user", "bot")
+	IconPosition string  // "top", "bottom", "left", "right"
+	IconSize     float64 // px
 }
 
 // LayoutEdge represents a positioned edge ready for SVG rendering.
@@ -231,6 +235,15 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 				node.TextFormat = m.Format
 			case *parser.ShapeMeta:
 				node.Shape = m.Value
+			case *parser.IconMeta:
+				node.IconURL = toString(m.Values["url"])
+				node.IconKind = toString(m.Values["kind"])
+				pos := toString(m.Values["position"])
+				if pos == "" {
+					pos = "top"
+				}
+				node.IconPosition = pos
+				node.IconSize = floatVal(m.Values, "size", 48)
 			}
 		}
 
@@ -251,16 +264,33 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 
 	// Compute size if not fixed or if fixed without explicit w/h
 	if node.W == 0 || node.H == 0 {
-		if node.Shape == "user" || node.Shape == "bot" {
-			// Icon shapes: maintain aspect ratio; iconLabelH is always added to h
-			switch {
-			case node.W == 0 && node.H == 0:
-				node.W = iconNodeW
-				node.H = iconNodeH + iconLabelH
-			case node.W == 0: // h given → scale w
-				node.W = iconNodeW * (node.H - iconLabelH) / iconNodeH
-			default: // w given → scale h
-				node.H = iconNodeH*node.W/iconNodeW + iconLabelH
+		if hasIcon(node) {
+			// @icon node: size accounts for icon + label
+			sz := node.IconSize
+			lines := strings.Split(node.Label, "\n")
+			maxLen := 0
+			for _, l := range lines {
+				if len(l) > maxLen {
+					maxLen = len(l)
+				}
+			}
+			labelW := float64(maxLen)*charWidth + nodePadX
+			labelH := nodePadY + float64(len(lines))*lineHeight
+			switch node.IconPosition {
+			case "left", "right":
+				if node.W == 0 {
+					node.W = math.Max(defaultNodeW, sz+iconGap+labelW)
+				}
+				if node.H == 0 {
+					node.H = math.Max(defaultNodeH, math.Max(sz, labelH))
+				}
+			default: // "top", "bottom"
+				if node.W == 0 {
+					node.W = math.Max(defaultNodeW, math.Max(sz+nodePadX, labelW))
+				}
+				if node.H == 0 {
+					node.H = sz + iconGap + labelH
+				}
 			}
 		} else {
 			w, h := computeNodeSize(node.Label, node.Children)
@@ -656,6 +686,18 @@ func applyEdgeStyle(style *EdgeStyle, values map[string]interface{}) {
 	if v, ok := values["stroke-width"]; ok {
 		style.StrokeWidth = toFloat(v)
 	}
+	if v, ok := values["dash"]; ok {
+		switch d := v.(type) {
+		case []interface{}:
+			parts := make([]string, 0, len(d))
+			for _, item := range d {
+				parts = append(parts, fmt.Sprintf("%v", item))
+			}
+			style.StrokeDash = strings.Join(parts, ",")
+		case string:
+			style.StrokeDash = d
+		}
+	}
 }
 
 func toString(v interface{}) string {
@@ -663,4 +705,9 @@ func toString(v interface{}) string {
 		return s
 	}
 	return ""
+}
+
+// hasIcon returns true if the node has an icon (either URL or built-in kind).
+func hasIcon(node *LayoutNode) bool {
+	return node.IconURL != "" || node.IconKind != ""
 }

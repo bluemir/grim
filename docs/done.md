@@ -83,7 +83,7 @@
 - [x] 역방향 화살표 지원 `A <- B`
 - [x] 양방향 화살표 지원 `A <-> B`
 - [x] 편집창에서 좌측 textarea 영역만 스크롤 우측은 주어진 크기에 꽉 차게
-- [x] `@shape` 에 user , bot 추가
+- [x] `@shape` 에 user , bot 추가 → `@icon {kind: user}` / `@icon {kind: bot}`으로 이전됨
 - [x] access log 에서 특정 endpoint 는 query 를 찍지 않기
 	- editor, viewer 는 data query 를 찍기 않도록
 	- 실제 데이터라 너무 긴데, 서버에게 의미는 없음.

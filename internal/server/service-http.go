@@ -22,7 +22,7 @@ import (
 	"github.com/bluemir/grim/internal/server/middleware/prom"
 )
 
-var noQueryPaths = []string{"/editor", "/viewer"}
+var noQueryPaths = []string{"/editor", "/view"}
 
 func accessLogFormatter(param gin.LogFormatterParams) string {
 	path := param.Path

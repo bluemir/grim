@@ -3,32 +3,36 @@
 	- Sugiyama-style graph drawing?
 	- 그러면서 12 grid 에 맞게끔?
 - [ ] 엣지의 라벨만 옯기는 기능
-- [ ] 선택후 상하좌우키로 미세조정
-- [ ] @icon 렌더링 — SVG `<image>` 사용
-- [ ] Markdown 텍스트 렌더링 — goldmark → foreignObject
+- [x] 선택후 상하좌우키로 미세조정
+	- alt 키 누르지 않으면 16px grid에 스냅
+	- Alt 키 누르면 1px 씩
+- [x] @icon 렌더링 — SVG `<image>` 사용
+- [x] Markdown 텍스트 렌더링 — goldmark → foreignObject
 - [ ] LaTeX 텍스트 렌더링 — KaTeX → foreignObject
 - [ ] 엣지 gap 커스터마이징
 - [ ] 엣지 히트박스 — 투명한 두꺼운 path 겹치기
-- [ ] 엣지 스타일 — stroke-dash, arrow 종류(triangle, diamond, none)
-- [x] 노드 스타일 — stroke-dash, shadow, opacity, border-radius
+- [x] 엣지 스타일 — dash, arrow 종류(triangle, diamond, none)
+- [x] 노드 스타일 — dash, shadow, opacity, border-radius
 - [ ] SVG/PNG 다운로드 export
 	- `/export?kind=svg&data={data}` 로 svg 랜더링 된 내용만 내려주기
-- [ ] 공유 URL — /view?data={base64} 읽기 전용 뷰
+- [x] 공유 URL — /view?data={base64} 읽기 전용 뷰
+	- editor 에서 사용되는 UI 요소는 제거
+	- Click 시 highlight 만 제공(겹쳐진 선 이나 도형 식별용)
 - [ ] 에러 시 마지막 유효 SVG 유지 + 에러 표시
 - [ ] enhanced textarea 에서 실행 취소/재실행 올바르게 동작하게 하기
-- [ ] node 크기를 마우스롤 조절할수 있도록
+- [x] node 크기를 마우스롤 조절할수 있도록
 - [ ] node 모양을 마우스로 바꿀수 있도록
 	- node를 선택 시 조그마한 dropdown 버튼이 나오고 클릭해서 바꾸기
 - [ ] 중첩된 node 내에서도 12 grid 기반 자동 배치 지원
-- [ ] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
+- [x] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
 	- 선택시 선택된것을 표시
 	- textarea 가 선택된 상태가 되긴 하나 해당 선택 구역으로 scroll 되지 않음. 스크롤 되도록 해야 함
 - [ ] undo/redo 단축키
 - [ ] iso render 추가
 - [ ] multi selection
-- [ ] edge 도 선택할수 있어야 함.
+- [x] edge 도 선택할수 있어야 함.
 - [x] 사용자 문서 작성
-- [ ] 화살표 없는 선 지원 `A -- B`
+- [x] 화살표 없는 선 지원 `A -- B`
 - [ ] iframe 지원
 - [ ] 배포
-- [ ] icon에서 fa github 을 쓸수 있도록 변경
+- [ ] @icon 에서 너비 높이픞 지정 할수 있도록 개선

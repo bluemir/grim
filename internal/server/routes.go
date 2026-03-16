@@ -47,6 +47,7 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 
 		app.GET("/", html("index.html"))
 		app.GET("/editor", html("editor.html"))
+		app.GET("/view", html("viewer.html"))
 		app.GET("/guide", redirect("/guide/getting-started"))
 		app.GET("/guide/*slug", html("guide.html"))
 	}

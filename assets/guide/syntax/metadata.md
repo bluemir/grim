@@ -69,7 +69,7 @@ my-node
 decision
 ```
 
-지원되는 모양: `rectangle`(기본값), `rounded`, `circle`, `diamond`, `cylinder`, `cloud`, `hexagon`, `parallelogram`, `user`, `bot`
+지원되는 모양: `rectangle`(기본값), `rounded`, `circle`, `diamond`, `cylinder`, `cloud`, `hexagon`, `parallelogram`
 
 전체 목록과 설명은 [Shape 종류](../reference/shapes)를 참고하세요.
 
@@ -149,7 +149,9 @@ GUI에서 `Alt+Click`으로 웨이포인트를 추가/제거할 수 있습니다
 
 ## @icon
 
-노드에 아이콘 이미지를 표시합니다.
+노드에 아이콘을 표시합니다. 외부 이미지 URL 또는 내장 아이콘 종류를 지정할 수 있습니다.
+
+### 외부 이미지 아이콘
 
 ```grim
 aws-backup {
@@ -162,11 +164,36 @@ server {
 }
 ```
 
+### 내장 아이콘
+
+```grim
+actor {
+    @icon { kind: user }
+    @text 사용자
+}
+
+ai {
+    @icon { kind: bot }
+    @text AI 에이전트
+}
+
+# position, size도 사용 가능
+actor2 {
+    @icon { kind: user, position: left, size: 32 }
+    @text 사용자
+}
+```
+
 | 속성 | 설명 | 기본값 |
 |------|------|--------|
-| `url` | 아이콘 이미지 URL (필수) | — |
+| `url` | 아이콘 이미지 URL | — |
+| `kind` | 내장 아이콘 종류 (`user`, `bot`) | — |
 | `position` | 텍스트 대비 아이콘 위치 | `top` |
 | `size` | 아이콘 크기 (px) | `48` |
+
+`url`과 `kind`는 상호 배타적입니다. 둘 중 하나만 지정하세요.
+
+**kind 값**: `user` (사람 실루엣), `bot` (로봇)
 
 **position 값**: `top`, `bottom`, `left`, `right`
 

@@ -142,7 +142,7 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
 | `fill` | 배경색 | `blue`, `#3498db`, `transparent` |
 | `stroke` | 테두리 색 | `black`, `#333` |
 | `stroke-width` | 테두리 두께 (px) | `2` |
-| `stroke-dash` | 테두리 점선 패턴 | `5,3` |
+| `dash` | 테두리 점선 패턴 | `5,3` |
 | `shadow` | 그림자 크기 (px, 0이면 없음) | `3` |
 | `opacity` | 투명도 (0~1) | `0.5` |
 | `font-size` | 텍스트 크기 (px) | `14` |
@@ -154,7 +154,7 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
 |---|---|---|
 | `stroke` | 선 색 | `red`, `#333` |
 | `stroke-width` | 선 두께 (px) | `2` |
-| `stroke-dash` | 점선 패턴 | `5,3` |
+| `dash` | 점선 패턴 | `5,3` |
 | `arrow` | 화살표 모양 | `triangle`, `diamond`, `none` |
 
 ## 데이터 모델 및 문법 예시 (Syntax Example)

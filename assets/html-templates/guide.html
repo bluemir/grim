@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>grim — Guide</title>
+        {{ template "snippet/header.html" . }}
+        <style>
+            header {
+                background-color: var(--gray-300);
+            }
+            body {
+                background-color: var(--gray-50);
+            }
+        </style>
+    </head>
+    <body layout="one-page">
+        <header>
+            <div row>
+                <global-navigation-bar></global-navigation-bar>
+            </div>
+        </header>
+        <main>
+            <div row>
+                <guide-page></guide-page>
+            </div>
+        </main>
+    </body>
+</html>

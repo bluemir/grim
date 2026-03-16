@@ -33,3 +33,5 @@ func CheckDevAssets() error {
 }
 
 var HtmlTemplates fs.FS = os.DirFS("assets")
+
+var GuideFS fs.FS = os.DirFS("assets")

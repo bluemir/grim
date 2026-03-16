@@ -28,3 +28,6 @@ func CheckDevAssets() error {
 
 //go:embed html-templates
 var HtmlTemplates embed.FS
+
+//go:embed guide
+var GuideFS embed.FS

@@ -29,6 +29,8 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 		v1 := app.Group("/api/v1", markAcceptJSON)
 
 		v1.GET("/ping", api(handler.Ping))
+		v1.GET("/guide/manifest", api(handler.GuideManifest))
+		v1.GET("/guide/pages/*slug", api(handler.GuidePage))
 
 		// WebSocket
 		//v1.GET("/ws", handler.Websocket)
@@ -45,6 +47,8 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 
 		app.GET("/", html("index.html"))
 		app.GET("/editor", html("editor.html"))
+		app.GET("/guide", redirect("/guide/getting-started"))
+		app.GET("/guide/*slug", html("guide.html"))
 	}
 
 	noRoute(func(c *gin.Context) {

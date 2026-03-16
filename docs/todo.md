@@ -12,6 +12,7 @@
 - [ ] 엣지 스타일 — stroke-dash, arrow 종류(triangle, diamond, none)
 - [ ] 노드 스타일 — stroke-dash, shadow, opacity, border-radius
 - [ ] SVG/PNG 다운로드 export
+	- `/export?kind=svg&data={data}` 로 svg 랜더링 된 내용만 내려주기
 - [ ] 공유 URL — /view?data={base64} 읽기 전용 뷰
 - [ ] 에러 시 마지막 유효 SVG 유지 + 에러 표시
 - [ ] enhanced textarea 에서 실행 취소/재실행 올바르게 동작하게 하기
@@ -26,3 +27,8 @@
 - [ ] iso render 추가
 - [ ] multi selection
 - [ ] edge 도 선택할수 있어야 함.
+- [x] 사용자 문서 작성
+- [ ] 화살표 없는 선 지원 `A -- B`
+- [ ] iframe 지원
+- [ ] 배포
+- [ ] icon에서 fa github 을 쓸수 있도록 변경

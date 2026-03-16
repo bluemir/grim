@@ -32,7 +32,7 @@ class GlobalNavigationBar extends HTMLElement {
 			<section id="action">
 				<a href="/editor">Editor</a>
 				<a href="/guide">Guide</a>
-				<a href="https://github.com/bluemir/grim"><c-icon fa kind="link" size="1rem" /></a>
+				<a href="https://github.com/bluemir/grim"><c-icon fa="brands" kind="github" size="1rem" /></a>
 			</section>
 		`;
 	}

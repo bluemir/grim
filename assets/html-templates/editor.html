@@ -137,6 +137,11 @@
                 outline: 2px solid #4a90e2;
             }
 
+            /* Selected edge highlight */
+            .svg-container g[data-type='edge'].selected > polyline:nth-child(2) {
+                stroke: #4a90e2 !important;
+            }
+
             body[layout=one-page] [row] {
                 max-width: unset;
                 margin: 0 1rem;
@@ -219,6 +224,12 @@
                     } else {
                         selectedGroup = null;
                     }
+                }
+                if (selectedEdge) {
+                    const id = selectedEdge.dataset.id;
+                    const restored = svgContainer.querySelector(`g[data-type='edge'][data-id="${CSS.escape(id)}"]`);
+                    if (restored) { restored.classList.add("selected"); selectedEdge = restored; }
+                    else { selectedEdge = null; }
                 }
             }
 
@@ -385,6 +396,7 @@
             let anchorDragState = null;
             let resizeDragState = null;
             let selectedGroup = null;
+            let selectedEdge = null;
 
             function attachResizeHandles(group) {
                 removeResizeHandles();
@@ -537,14 +549,26 @@
                     return;
                 }
 
+                // Edge body click (selection)
+                const edgeGroup = e.target.closest("g[data-type='edge']");
+                if (edgeGroup) {
+                    const svg = svgContainer.querySelector("svg");
+                    if (!svg) return;
+                    dragState = {
+                        group: null, edgeGroup, svg,
+                        startSVG: getSVGPoint(svg, e.clientX, e.clientY),
+                        startClientX: e.clientX, startClientY: e.clientY,
+                        origX: 0, origY: 0,
+                    };
+                    e.preventDefault();
+                    return;
+                }
+
                 // Node drag
                 const group = findNodeGroup(e.target);
                 if (!group) {
-                    if (selectedGroup) {
-                        selectedGroup.classList.remove("selected");
-                        selectedGroup = null;
-                        removeResizeHandles();
-                    }
+                    if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeResizeHandles(); }
+                    if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
                     return;
                 }
                 const svg = svgContainer.querySelector("svg");
@@ -709,23 +733,32 @@
                 }
 
                 if (!dragState) return;
-                const { group, svg, startSVG, startClientX, startClientY, origX, origY, parentX, parentY } = dragState;
+                const { group, edgeGroup, svg, startSVG, startClientX, startClientY, origX, origY, parentX, parentY } = dragState;
                 dragState = null;
                 svg.style.cursor = "";
 
                 const pixelDist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY);
                 if (pixelDist < 5) {
-                    // Click (not drag): navigate textarea cursor to declaration line
-                    if (selectedGroup) selectedGroup.classList.remove("selected");
-                    removeResizeHandles();
-                    selectedGroup = group;
-                    group.classList.add("selected");
-                    attachResizeHandles(group);
-
-                    const line = parseInt(group.dataset.line);
-                    navigateToLine(editor, line);
+                    if (edgeGroup) {
+                        // Edge click: select edge, deselect node
+                        if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeResizeHandles(); }
+                        if (selectedEdge) selectedEdge.classList.remove("selected");
+                        selectedEdge = edgeGroup;
+                        edgeGroup.classList.add("selected");
+                        navigateToLine(editor, parseInt(edgeGroup.dataset.line));
+                    } else {
+                        // Node click: select node, deselect edge
+                        if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
+                        if (selectedGroup) selectedGroup.classList.remove("selected");
+                        removeResizeHandles();
+                        selectedGroup = group;
+                        group.classList.add("selected");
+                        attachResizeHandles(group);
+                        navigateToLine(editor, parseInt(group.dataset.line));
+                    }
                     return;
                 }
+                if (edgeGroup) return;  // 엣지 body는 drag 없음
 
                 const pt = getSVGPoint(svg, e.clientX, e.clientY);
                 const rawX = origX + pt.x - startSVG.x;

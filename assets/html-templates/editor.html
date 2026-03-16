@@ -111,6 +111,23 @@
                 display: inline-block;
             }
 
+            .resize-handle { fill: transparent; }
+            .resize-handle:hover { fill: rgba(74, 144, 226, 0.25); }
+            .resize-handle[data-resize-handle="n"] { cursor: n-resize; }
+            .resize-handle[data-resize-handle="s"] { cursor: s-resize; }
+            .resize-handle[data-resize-handle="w"] { cursor: w-resize; }
+            .resize-handle[data-resize-handle="e"] { cursor: e-resize; }
+            .resize-size-label {
+                font-size: 11px;
+                font-family: monospace;
+                fill: #4a90e2;
+                pointer-events: none;
+                paint-order: stroke;
+                stroke: white;
+                stroke-width: 3px;
+                stroke-linejoin: round;
+            }
+
             /* Selected node highlight */
             .svg-container g[data-id].selected > rect:first-of-type {
                 stroke: #4a90e2 !important;
@@ -122,7 +139,7 @@
 
             body[layout=one-page] [row] {
                 max-width: unset;
-                margin: 0;
+                margin: 0 1rem;
                 padding: 0;
             }
         </style>
@@ -198,6 +215,7 @@
                     if (restored) {
                         restored.classList.add("selected");
                         selectedGroup = restored;
+                        attachResizeHandles(restored);
                     } else {
                         selectedGroup = null;
                     }
@@ -340,6 +358,10 @@
             }
 
             const GRID_SIZE = 16;
+            const MIN_NODE_W = 40;
+            const MIN_NODE_H = 24;
+            const HANDLE_SIZE = 8;
+
             function snapToGrid(value, altKey) {
                 if (altKey) return Math.round(value);
                 return Math.round(value / GRID_SIZE) * GRID_SIZE;
@@ -359,9 +381,110 @@
             let dragState = null;
             let waypointDragState = null;
             let anchorDragState = null;
+            let resizeDragState = null;
             let selectedGroup = null;
 
+            function attachResizeHandles(group) {
+                removeResizeHandles();
+                const x = parseFloat(group.dataset.x);
+                const y = parseFloat(group.dataset.y);
+                const w = parseFloat(group.dataset.w);
+                const h = parseFloat(group.dataset.h);
+                const ht = HANDLE_SIZE; // hit area thickness
+                // Each handle covers the full length of its side
+                const sides = [
+                    ["n", x,           y - ht/2,     w,  ht],
+                    ["s", x,           y + h - ht/2, w,  ht],
+                    ["e", x + w - ht/2, y,            ht, h],
+                    ["w", x - ht/2,    y,             ht, h],
+                ];
+                for (const [dir, hx, hy, hw, hh] of sides) {
+                    const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+                    rect.setAttribute("x", hx);
+                    rect.setAttribute("y", hy);
+                    rect.setAttribute("width", hw);
+                    rect.setAttribute("height", hh);
+                    rect.classList.add("resize-handle");
+                    rect.setAttribute("data-resize-handle", dir);
+                    group.appendChild(rect);
+                }
+            }
+
+            function removeResizeHandles() {
+                svgContainer.querySelectorAll(".resize-handle").forEach(el => el.remove());
+            }
+
+            function repositionResizeHandles(group, x, y, w, h) {
+                const ht = HANDLE_SIZE;
+                const transform = group.getAttribute("transform") || "";
+                const match = transform.match(/translate\(\s*([^,\s]+)[,\s]+([^)\s]+)\s*\)/);
+                const tx = match ? parseFloat(match[1]) : 0;
+                const ty = match ? parseFloat(match[2]) : 0;
+                // [x, y, width, height] in group-local coords (absolute minus translate)
+                const positions = {
+                    n: [x - tx,            y - ht/2 - ty,       w,  ht],
+                    s: [x - tx,            y + h - ht/2 - ty,   w,  ht],
+                    e: [x + w - ht/2 - tx, y - ty,              ht, h],
+                    w: [x - ht/2 - tx,     y - ty,              ht, h],
+                };
+                group.querySelectorAll(".resize-handle").forEach(rect => {
+                    const dir = rect.dataset.resizeHandle;
+                    const pos = positions[dir];
+                    if (pos) {
+                        rect.setAttribute("x", pos[0]);
+                        rect.setAttribute("y", pos[1]);
+                        rect.setAttribute("width", pos[2]);
+                        rect.setAttribute("height", pos[3]);
+                    }
+                });
+            }
+
+            function updateResizeSizeLabel(svg, dir, newX, newY, newW, newH) {
+                let label = svg.querySelector(".resize-size-label");
+                if (!label) {
+                    label = document.createElementNS("http://www.w3.org/2000/svg", "text");
+                    label.classList.add("resize-size-label");
+                    svg.appendChild(label);
+                }
+                let lx, ly, anchor;
+                if (dir === "n") {
+                    lx = newX + newW / 2; ly = newY - 8; anchor = "middle";
+                } else if (dir === "s") {
+                    lx = newX + newW / 2; ly = newY + newH + 16; anchor = "middle";
+                } else if (dir === "e") {
+                    lx = newX + newW + 8; ly = newY + newH / 2 + 4; anchor = "start";
+                } else {
+                    lx = newX - 8; ly = newY + newH / 2 + 4; anchor = "end";
+                }
+                label.setAttribute("x", lx);
+                label.setAttribute("y", ly);
+                label.setAttribute("text-anchor", anchor);
+                label.textContent = `${Math.round(newW)} × ${Math.round(newH)}`;
+            }
+
+            function removeResizeSizeLabel() {
+                svgContainer.querySelector(".resize-size-label")?.remove();
+            }
+
             svgContainer.addEventListener("mousedown", (e) => {
+                // Resize handle drag
+                const resizeHandleEl = e.target.closest("[data-resize-handle]");
+                if (resizeHandleEl) {
+                    const group = resizeHandleEl.closest("g[data-id]");
+                    const svg = svgContainer.querySelector("svg");
+                    if (!group || !svg) return;
+                    resizeDragState = {
+                        svg, group,
+                        dir: resizeHandleEl.dataset.resizeHandle,
+                        startSVG: getSVGPoint(svg, e.clientX, e.clientY),
+                        origX: parseFloat(group.dataset.x),
+                        origY: parseFloat(group.dataset.y),
+                        origW: parseFloat(group.dataset.w),
+                        origH: parseFloat(group.dataset.h),
+                    };
+                    e.preventDefault(); e.stopPropagation(); return;
+                }
+
                 // Anchor handle drag (from/to connection point)
                 const anchorFromEl = e.target.closest("[data-anchor-from]");
                 const anchorToEl   = e.target.closest("[data-anchor-to]");
@@ -411,7 +534,14 @@
 
                 // Node drag
                 const group = findNodeGroup(e.target);
-                if (!group) return;
+                if (!group) {
+                    if (selectedGroup) {
+                        selectedGroup.classList.remove("selected");
+                        selectedGroup = null;
+                        removeResizeHandles();
+                    }
+                    return;
+                }
                 const svg = svgContainer.querySelector("svg");
                 if (!svg) return;
 
@@ -435,6 +565,29 @@
             });
 
             window.addEventListener("mousemove", (e) => {
+                if (resizeDragState) {
+                    const { svg, group, dir, startSVG, origX, origY, origW, origH } = resizeDragState;
+                    const pt = getSVGPoint(svg, e.clientX, e.clientY);
+                    const dx = pt.x - startSVG.x;
+                    const dy = pt.y - startSVG.y;
+                    let newX = origX, newY = origY, newW = origW, newH = origH;
+                    if (dir === "e") {
+                        newW = Math.max(MIN_NODE_W, snapToGrid(origW + dx, e.altKey));
+                    } else if (dir === "s") {
+                        newH = Math.max(MIN_NODE_H, snapToGrid(origH + dy, e.altKey));
+                    } else if (dir === "w") {
+                        newW = Math.max(MIN_NODE_W, snapToGrid(origW - dx, e.altKey));
+                        newX = origX + (origW - newW);
+                    } else if (dir === "n") {
+                        newH = Math.max(MIN_NODE_H, snapToGrid(origH - dy, e.altKey));
+                        newY = origY + (origH - newH);
+                    }
+                    group.setAttribute("transform", `translate(${newX - origX}, ${newY - origY})`);
+                    repositionResizeHandles(group, newX, newY, newW, newH);
+                    updateResizeSizeLabel(svg, dir, newX, newY, newW, newH);
+                    return;
+                }
+
                 if (anchorDragState) {
                     const pt = getSVGPoint(anchorDragState.svg, e.clientX, e.clientY);
                     anchorDragState.anchorEl.setAttribute("cx", pt.x.toFixed(1));
@@ -476,6 +629,32 @@
             });
 
             window.addEventListener("mouseup", (e) => {
+                if (resizeDragState) {
+                    const { svg, group, dir, startSVG, origX, origY, origW, origH } = resizeDragState;
+                    resizeDragState = null;
+                    removeResizeSizeLabel();
+                    const pt = getSVGPoint(svg, e.clientX, e.clientY);
+                    const dx = pt.x - startSVG.x;
+                    const dy = pt.y - startSVG.y;
+                    if (Math.abs(dx) < 2 && Math.abs(dy) < 2) { return; }
+                    let newX = origX, newY = origY, newW = origW, newH = origH;
+                    if (dir === "e") {
+                        newW = Math.max(MIN_NODE_W, snapToGrid(origW + dx, e.altKey));
+                    } else if (dir === "s") {
+                        newH = Math.max(MIN_NODE_H, snapToGrid(origH + dy, e.altKey));
+                    } else if (dir === "w") {
+                        newW = Math.max(MIN_NODE_W, snapToGrid(origW - dx, e.altKey));
+                        newX = origX + (origW - newW);
+                    } else if (dir === "n") {
+                        newH = Math.max(MIN_NODE_H, snapToGrid(origH - dy, e.altKey));
+                        newY = origY + (origH - newH);
+                    }
+                    const id = group.dataset.id;
+                    editor.value = grimSetNodeSize(editor.value, id, Math.round(newX), Math.round(newY), Math.round(newW), Math.round(newH));
+                    render();
+                    return;
+                }
+
                 if (anchorDragState) {
                     const { svg, edgeGroup, isFrom, line, nodeId } = anchorDragState;
                     anchorDragState = null;
@@ -529,8 +708,10 @@
                 if (pixelDist < 5) {
                     // Click (not drag): navigate textarea cursor to declaration line
                     if (selectedGroup) selectedGroup.classList.remove("selected");
+                    removeResizeHandles();
                     selectedGroup = group;
                     group.classList.add("selected");
+                    attachResizeHandles(group);
 
                     const line = parseInt(group.dataset.line);
                     navigateToLine(editor, line);
@@ -557,6 +738,7 @@
 
             // 노드 위 커서 스타일
             svgContainer.addEventListener("mouseover", (e) => {
+                if (e.target.closest("[data-resize-handle]")) return;
                 if (dragState || waypointDragState || anchorDragState) return;
                 const group = findNodeGroup(e.target);
                 const svg = svgContainer.querySelector("svg");

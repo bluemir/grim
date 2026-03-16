@@ -111,6 +111,39 @@ func updateLayoutMeta(node *NodeDecl, x, y int64) {
 	node.Block.Metadata = append([]Metadata{lm}, node.Block.Metadata...)
 }
 
+// SetNodeSize sets the @layout x, y, w, h values for a node identified by nodeID.
+// The document is modified in place; call Format(doc) to get updated source.
+func SetNodeSize(doc *Document, nodeID string, x, y, w, h int64) {
+	segments := strings.Split(nodeID, ".")
+	node := findNodeByPath(doc.Statements, segments)
+	if node == nil {
+		node = createNodeByPath(doc, segments)
+	}
+	updateSizeMeta(node, x, y, w, h)
+}
+
+// updateSizeMeta updates or inserts @layout { x, y, w, h } on the node.
+// Preserves existing keys (stack, etc.) in the LayoutMeta.
+func updateSizeMeta(node *NodeDecl, x, y, w, h int64) {
+	if node.Block == nil {
+		node.Block = &Block{}
+	}
+	for _, m := range node.Block.Metadata {
+		if lm, ok := m.(*LayoutMeta); ok {
+			lm.Values["x"] = x
+			lm.Values["y"] = y
+			lm.Values["w"] = w
+			lm.Values["h"] = h
+			return
+		}
+	}
+	// No existing @layout — prepend to metadata
+	lm := &LayoutMeta{
+		Values: map[string]interface{}{"x": x, "y": y, "w": w, "h": h},
+	}
+	node.Block.Metadata = append([]Metadata{lm}, node.Block.Metadata...)
+}
+
 // SetEdgeWaypoints sets the waypoints for the edge at the given source line.
 // The document is modified in place; call Format(doc) to get updated source.
 func SetEdgeWaypoints(doc *Document, line int, waypoints []interface{}) {

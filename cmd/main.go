@@ -9,6 +9,8 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/sirupsen/logrus"
 
+	guideCmd "github.com/bluemir/grim/cmd/guide"
+	renderCmd "github.com/bluemir/grim/cmd/render"
 	serverCmd "github.com/bluemir/grim/cmd/server"
 	"github.com/bluemir/grim/internal/buildinfo"
 )
@@ -58,6 +60,8 @@ func Run() error {
 		return nil
 	})
 
+	guideCmd.Register(app.Command("guide", "show .grim guide"))
+	renderCmd.Register(app.Command("render", "render .grim file to SVG"))
 	serverCmd.Register(app.Command("server", "server"))
 
 	cmd, err := app.Parse(os.Args[1:])

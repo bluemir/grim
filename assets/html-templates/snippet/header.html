@@ -2,13 +2,22 @@
 	{
 		"imports": {
 			"@/": "/static/{{rev .}}/js/",
+			{{if useCDN .}}
+			"lit-html": "https://unpkg.com/lit-html@3.2.1/lit-html.js?module",
+			{{else}}
 			"lit-html": "/static/{{rev .}}/bundle/lit-html/lit-html.js",
+			{{end}}
 			"bm.js/bm.module.js": "/static/{{rev .}}/bundle/bm.js/bm.module.js",
 			"index.js": "/static/{{rev .}}/js/index.js"
 		}
 	}
 </script>
+{{if useCDN .}}
+<link href="https://unpkg.com/@fortawesome/fontawesome-free@7.2.0/css/all.min.css" rel="stylesheet">
+<link href="https://unpkg.com/material-symbols@0.40.2/outlined.css" rel="stylesheet">
+{{else}}
 <link href="/static/{{rev .}}/bundle/fonts/fonts.css" rel="stylesheet">
+{{end}}
 <style>@import "/static/{{rev .}}/css/page.css";</style>
 <script type="module">
 	import "index.js";

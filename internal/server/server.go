@@ -28,6 +28,7 @@ type Args struct {
 
 	DBPath string
 	Salt   string
+	UseCDN bool
 }
 
 type Config struct {
@@ -36,6 +37,7 @@ type Config struct {
 
 type Server struct {
 	backends *backend.Backends
+	useCDN   bool
 }
 
 func Run(ctx context.Context, args *Args) error {
@@ -63,6 +65,7 @@ func Run(ctx context.Context, args *Args) error {
 
 	server := &Server{
 		backends: bs,
+		useCDN:   args.UseCDN,
 	}
 
 	if !logrus.IsLevelEnabled(logrus.DebugLevel) {

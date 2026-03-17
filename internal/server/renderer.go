@@ -25,6 +25,9 @@ func NewRenderer() (*template.Template, error) {
 		"rev": func(c *gin.Context) string {
 			return c.GetString(cache.REVVED)
 		},
+		"useCDN": func(c *gin.Context) bool {
+			return c.GetBool("__USE_CDN__")
+		},
 	})
 
 	templates, err := fs.Sub(assets.HtmlTemplates, "html-templates")

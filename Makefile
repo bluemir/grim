@@ -5,8 +5,10 @@ IMPORT_PATH=$(shell cat go.mod | head -n 1 | awk '{print $$2}')
 APP_NAME=$(notdir $(IMPORT_PATH))
 
 export GO111MODULE=on
+export GOTOOLCHAIN=go1.26.0+auto
 export GOPRIVATE=
 export PATH:=./runtime/tools:$(PATH)
+
 
 # go build args
 OPTIONAL_BUILD_ARGS?=

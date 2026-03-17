@@ -36,6 +36,7 @@ func Register(cmd *kingpin.CmdClause) {
 		StringVar(&conf.Salt)
 	cmd.Flag("config", "config file").
 		Short('c').StringVar(&conf.ConfigFilePath)
+	cmd.Flag("cdn", "use CDN for external libraries").BoolVar(&conf.UseCDN)
 	cmd.Action(func(*kingpin.ParseContext) error {
 		logrus.Trace("called")
 

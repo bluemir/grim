@@ -36,3 +36,7 @@
 - [ ] iframe 지원
 - [ ] 배포
 - [ ] @icon 에서 너비 높이픞 지정 할수 있도록 개선
+- [ ] wasm 의 cache 전략 조절
+	- rev?
+- [ ] 다른 사이트에서 import 할수 있는 custom element
+	- 사용예: `<script type="module" src="grim.bluemir.me/static/elements/grim-viewer.js" ></script><grim-viewer>A -> B</grim-viewer>`

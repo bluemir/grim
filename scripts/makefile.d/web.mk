@@ -57,5 +57,9 @@ assets/bundle/fonts/fonts.css: assets/vendor/fonts.css node_modules/.package-loc
 	@mkdir -p $(dir $@)
 	esbuild $< --bundle --outdir=assets/bundle/fonts --loader:.woff2=file --asset-names=[name]
 
-build/$(APP_NAME):            assets/bundle/bm.js/bm.module.js assets/bundle/lit-html/lit-html.js assets/bundle/fonts/fonts.css assets/bundle/wasm/wasm_exec.js assets/bundle/wasm/$(APP_NAME).wasm
-build/$(APP_NAME)-$(VERSION): assets/bundle/bm.js/bm.module.js assets/bundle/lit-html/lit-html.js assets/bundle/fonts/fonts.css assets/bundle/wasm/wasm_exec.js assets/bundle/wasm/$(APP_NAME).wasm
+assets/bundle/codemirror/codemirror.js: assets/vendor/codemirror.js node_modules/.package-lock.json | runtime/tools/esbuild
+	@mkdir -p $(dir $@)
+	esbuild $< --bundle --format=esm --outfile=$@
+
+build/$(APP_NAME):            assets/bundle/bm.js/bm.module.js assets/bundle/lit-html/lit-html.js assets/bundle/fonts/fonts.css assets/bundle/codemirror/codemirror.js assets/bundle/wasm/wasm_exec.js assets/bundle/wasm/$(APP_NAME).wasm
+build/$(APP_NAME)-$(VERSION): assets/bundle/bm.js/bm.module.js assets/bundle/lit-html/lit-html.js assets/bundle/fonts/fonts.css assets/bundle/codemirror/codemirror.js assets/bundle/wasm/wasm_exec.js assets/bundle/wasm/$(APP_NAME).wasm

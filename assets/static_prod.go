@@ -9,7 +9,7 @@ import (
 
 // go generate로 esbuild 실행 (prod 빌드 시)
 //go:generate mkdir -p dist/js dist/js/elements dist/css
-//go:generate esbuild src/js/index.js --outdir=dist/js --bundle --minify --format=esm --external:lit-html --external:bm.js/bm.module.js --alias:@=./src/js
+//go:generate esbuild src/js/index.js --outdir=dist/js --bundle --minify --format=esm --external:lit-html --external:bm.js/bm.module.js --external:codemirror --alias:@=./src/js
 //go:generate esbuild src/js/elements/grim-viewer.js --outdir=dist/js/elements --bundle --minify --format=esm
 //go:generate esbuild src/css/page.css src/css/element.css --outdir=dist/css --bundle --minify
 

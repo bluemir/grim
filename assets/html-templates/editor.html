@@ -30,14 +30,13 @@
                 align-items: stretch;
             }
 
-            textarea {
+            c-editor {
                 width: 100%;
                 height: 100%;
-                resize: none;
                 box-sizing: border-box;
             }
 
-            [col="6"]:has(textarea) {
+            [col="6"]:has(c-editor) {
                 overflow: hidden;
                 min-height: 0;
                 display: flex;
@@ -161,13 +160,7 @@
                     <div class="editor-toolbar">
                         <button id="format-btn" title="Format code (Shift+Alt+F)">Format</button>
                     </div>
-                    <c-editor id="code-editor-wrapper">
-                        <textarea id="code-editor" is="enhanced-textarea"
-                            tab-size="4"
-                            indent="tab"
-                            submit-shortcut
-                        ></textarea>
-                    </c-editor>
+                    <c-editor id="code-editor-wrapper"></c-editor>
                 </div>
                 <div col="6" id="svg-preview" tabindex="0">
                     <div class="zoom-controls">
@@ -187,8 +180,8 @@
         </main>
         <script src="/static/{{rev .}}/bundle/wasm/wasm_exec.js"></script>
         <script type="module">
-            const editor = document.getElementById("code-editor");
-            const editorWrapper = document.getElementById("code-editor-wrapper");
+            const editor = document.getElementById("code-editor-wrapper");
+            const editorWrapper = editor;
             const preview = document.getElementById("svg-preview");
             const svgContainer = document.getElementById("svg-container");
 
@@ -457,7 +450,7 @@
 
             window.addEventListener("keydown", (e) => {
                 const tag = document.activeElement?.tagName;
-                if (tag === "TEXTAREA" || tag === "INPUT") return;
+                if (tag === "TEXTAREA" || tag === "INPUT" || document.activeElement?.closest("c-editor")) return;
                 if (WASD_CODES.has(e.code) && !pressedKeys.has(e.code)) {
                     pressedKeys.add(e.code);
                     e.preventDefault();
@@ -495,7 +488,7 @@
                 }
                 if (!ARROW_CODES.has(e.code)) return;
                 const tag = document.activeElement?.tagName;
-                if (tag === "TEXTAREA" || tag === "INPUT") return;
+                if (tag === "TEXTAREA" || tag === "INPUT" || document.activeElement?.closest("c-editor")) return;
                 if (!selectedGroup && !selectedEdge) return;
 
                 e.preventDefault();

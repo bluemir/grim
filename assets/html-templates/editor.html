@@ -197,9 +197,27 @@
             );
             go.run(result.instance);
 
+            // Fragment에서 data 읽기 (하위 호환: query param fallback)
+            function getDataFromFragment() {
+                const hash = window.location.hash.slice(1);
+                if (hash.startsWith("data=")) {
+                    return hash.slice(5);
+                }
+                const params = new URLSearchParams(window.location.search);
+                const legacyData = params.get("data");
+                if (legacyData) {
+                    history.replaceState(null, "", window.location.pathname + "#data=" + legacyData);
+                    return legacyData;
+                }
+                return null;
+            }
+
+            function setDataToFragment(base64) {
+                history.replaceState(null, "", window.location.pathname + "#data=" + base64);
+            }
+
             // URL에서 데이터 복원
-            const params = new URLSearchParams(window.location.search);
-            const data = params.get("data");
+            const data = getDataFromFragment();
             if (data) {
                 try {
                     editor.value = decodeURIComponent(escape(atob(data)));
@@ -237,13 +255,11 @@
             }
 
             function updateURL() {
-                const url = new URL(window.location);
                 if (editor.value) {
-                    url.searchParams.set("data", btoa(unescape(encodeURIComponent(editor.value))));
+                    setDataToFragment(btoa(unescape(encodeURIComponent(editor.value))));
                 } else {
-                    url.searchParams.delete("data");
+                    history.replaceState(null, "", window.location.pathname);
                 }
-                history.replaceState(null, "", url);
             }
 
             editor.addEventListener("input", () => {
@@ -412,11 +428,11 @@
 
             document.getElementById("open-viewer").addEventListener("click", () => {
                 const url = new URL("/view", window.location.origin);
-                const dataParam = new URLSearchParams(window.location.search).get("data");
+                const dataParam = getDataFromFragment();
                 if (dataParam) {
-                    url.searchParams.set("data", dataParam);
+                    url.hash = "data=" + dataParam;
                 }
-                window.open(url, "_blank");
+                window.open(url.toString(), "_blank");
             });
 
             // --- WASD 부드러운 스크롤 ---

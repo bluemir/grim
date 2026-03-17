@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-contrib/location"
@@ -22,23 +21,14 @@ import (
 	"github.com/bluemir/grim/internal/server/middleware/prom"
 )
 
-var noQueryPaths = []string{"/editor", "/view"}
-
 func accessLogFormatter(param gin.LogFormatterParams) string {
-	path := param.Path
-	for _, p := range noQueryPaths {
-		if strings.HasPrefix(param.Request.URL.Path, p) {
-			path = param.Request.URL.Path
-			break
-		}
-	}
 	return fmt.Sprintf("[GIN] %v | %3d | %13v | %15s | %-7s %#v\n%s",
 		param.TimeStamp.Format("2006/01/02 - 15:04:05"),
 		param.StatusCode,
 		param.Latency,
 		param.ClientIP,
 		param.Method,
-		path,
+		param.Path,
 		param.ErrorMessage,
 	)
 }

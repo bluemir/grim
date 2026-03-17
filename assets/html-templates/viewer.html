@@ -118,9 +118,23 @@
             );
             go.run(result.instance);
 
+            // Fragment에서 data 읽기 (하위 호환: query param fallback)
+            function getDataFromFragment() {
+                const hash = window.location.hash.slice(1);
+                if (hash.startsWith("data=")) {
+                    return hash.slice(5);
+                }
+                const params = new URLSearchParams(window.location.search);
+                const legacyData = params.get("data");
+                if (legacyData) {
+                    history.replaceState(null, "", window.location.pathname + "#data=" + legacyData);
+                    return legacyData;
+                }
+                return null;
+            }
+
             // URL에서 데이터 복원 및 렌더링
-            const params = new URLSearchParams(window.location.search);
-            const data = params.get("data");
+            const data = getDataFromFragment();
             if (data) {
                 try {
                     const source = decodeURIComponent(escape(atob(data)));
@@ -324,9 +338,9 @@
             // --- Open Editor ---
             document.getElementById("open-editor").addEventListener("click", () => {
                 const url = new URL("/editor", window.location.origin);
-                const dataParam = params.get("data");
+                const dataParam = getDataFromFragment();
                 if (dataParam) {
-                    url.searchParams.set("data", dataParam);
+                    url.hash = "data=" + dataParam;
                 }
                 window.open(url.toString(), "_blank");
             });

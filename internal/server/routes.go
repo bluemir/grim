@@ -43,7 +43,12 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 	// Static Pages
 	{
 		// js, css, etc.
-		app.Group("/static").Group(cache.Rev(), cache.Set(cache.ForRevvedResource)).StaticFS("/", http.FS(assets.Static()))
+		app.Group("/static", corsAllowAll).Group(cache.Rev(), cache.Set(cache.ForRevvedResource)).StaticFS("/", http.FS(assets.Static()))
+
+		// Stable redirect for external embedding (no cache — rev changes per build).
+		app.GET("/static/elements/grim-viewer.js", func(c *gin.Context) {
+			c.Redirect(http.StatusFound, "/static/"+cache.Rev()+"/js/elements/grim-viewer.js")
+		})
 
 		app.GET("/", html("index.html"))
 		app.GET("/editor", html("editor.html"))
@@ -105,6 +110,16 @@ func sse(fn func(c *gin.Context) error) gin.HandlerFunc {
 				Detail: err.Error(),
 			})
 		}
+	}
+}
+
+func corsAllowAll(c *gin.Context) {
+	c.Header("Access-Control-Allow-Origin", "*")
+	if c.Request.Method == http.MethodOptions {
+		c.Header("Access-Control-Allow-Methods", "GET, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type")
+		c.AbortWithStatus(http.StatusNoContent)
+		return
 	}
 }
 

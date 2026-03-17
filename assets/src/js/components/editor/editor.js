@@ -3,6 +3,18 @@ class CEditor extends HTMLElement {
 		return ["highlight"];
 	}
 
+	#overlay;
+	#highlightRanges;
+	#textarea;
+	#mirror;
+	#gutter;
+	#editorBody;
+	#onScroll;
+	#onInput;
+	#lastLineCount;
+	#originalValueDesc;
+	#resizeObserver;
+
 	constructor() {
 		super();
 		this.attachShadow({ mode: "open" });
@@ -15,9 +27,26 @@ class CEditor extends HTMLElement {
 					min-height: 0;
 					position: relative;
 				}
+				#editor-body {
+					display: flex;
+					flex: 1;
+					min-height: 0;
+					position: relative;
+				}
 				::slotted(textarea) {
 					flex: 1;
 					min-height: 0;
+				}
+				#line-gutter {
+					box-sizing: border-box;
+					overflow: hidden;
+					text-align: right;
+					padding-right: 0.5em;
+					color: var(--gray-500, #999);
+					background: var(--gray-100, #f5f5f5);
+					border-right: 1px solid var(--gray-300, #ccc);
+					user-select: none;
+					cursor: default;
 				}
 				#highlight-overlay {
 					position: absolute;
@@ -26,90 +55,145 @@ class CEditor extends HTMLElement {
 					z-index: 1;
 				}
 			</style>
-			<slot></slot>
+			<div id="editor-body">
+				<div id="line-gutter"></div>
+				<slot></slot>
+			</div>
 			<div id="highlight-overlay"></div>
 		`;
-		this._overlay = this.shadowRoot.getElementById("highlight-overlay");
-		this._highlightRanges = null;
-		this._textarea = null;
-		this._onScroll = () => this._updateHighlightPositions();
+		this.#overlay = this.shadowRoot.getElementById("highlight-overlay");
+		this.#gutter = this.shadowRoot.getElementById("line-gutter");
+		this.#editorBody = this.shadowRoot.getElementById("editor-body");
+		this.#highlightRanges = null;
+		this.#textarea = null;
+		this.#mirror = null;
+		this.#lastLineCount = 0;
+		this.#originalValueDesc = null;
+		this.#resizeObserver = new ResizeObserver(() => {
+			this.#renderLineNumbers();
+			this.#syncOverlayInset();
+		});
+		this.#onScroll = () => {
+			this.#updateHighlightPositions();
+			this.#syncGutterScroll();
+		};
+		this.#onInput = () => this.#renderLineNumbers();
 	}
 
 	connectedCallback() {
 		const slot = this.shadowRoot.querySelector("slot");
-		slot.addEventListener("slotchange", () => this._bindTextarea());
-		this._bindTextarea();
+		slot.addEventListener("slotchange", () => this.#bindTextarea());
+		this.#bindTextarea();
 	}
 
 	disconnectedCallback() {
-		if (this._textarea) {
-			this._textarea.removeEventListener("scroll", this._onScroll);
-			this._textarea = null;
+		if (this.#textarea) {
+			this.#textarea.removeEventListener("scroll", this.#onScroll);
+			this.#textarea.removeEventListener("input", this.#onInput);
+			this.#resizeObserver.unobserve(this.#textarea);
+			this.#unhookValueSetter();
+			this.#textarea = null;
 		}
-	}
-
-	_bindTextarea() {
-		if (this._textarea) {
-			this._textarea.removeEventListener("scroll", this._onScroll);
-		}
-		this._textarea = this.querySelector("textarea");
-		if (!this._textarea) return;
-
-		const cs = getComputedStyle(this._textarea);
-		if (cs.lineHeight === "normal") {
-			this._textarea.style.lineHeight = "1.2em";
-		}
-
-		this._textarea.addEventListener("scroll", this._onScroll);
-		this._syncOverlayInset();
-		this._renderHighlights();
-	}
-
-	_syncOverlayInset() {
-		if (!this._textarea) return;
-		const cs = getComputedStyle(this._textarea);
-		this._overlay.style.top = cs.borderTopWidth;
-		this._overlay.style.bottom = cs.borderBottomWidth;
-		this._overlay.style.left = cs.borderLeftWidth;
-		this._overlay.style.right = cs.borderRightWidth;
 	}
 
 	attributeChangedCallback(name, oldVal, newVal) {
 		if (name === "highlight") {
-			this._renderHighlights();
+			this.#renderHighlights();
 		}
 	}
 
-	_renderHighlights() {
+	#bindTextarea() {
+		if (this.#textarea) {
+			this.#textarea.removeEventListener("scroll", this.#onScroll);
+			this.#textarea.removeEventListener("input", this.#onInput);
+			this.#resizeObserver.unobserve(this.#textarea);
+			this.#unhookValueSetter();
+		}
+		this.#textarea = this.querySelector("textarea");
+		if (!this.#textarea) return;
+
+		const cs = getComputedStyle(this.#textarea);
+		if (cs.lineHeight === "normal") {
+			this.#textarea.style.lineHeight = "1.2em";
+		}
+
+		this.#textarea.addEventListener("scroll", this.#onScroll);
+		this.#textarea.addEventListener("input", this.#onInput);
+		this.#resizeObserver.observe(this.#textarea);
+		this.#hookValueSetter();
+		this.#renderLineNumbers();
+		this.#syncOverlayInset();
+		this.#renderHighlights();
+	}
+
+	#hookValueSetter() {
+		const ta = this.#textarea;
+		const proto = Object.getPrototypeOf(ta);
+		const desc = Object.getOwnPropertyDescriptor(proto, 'value')
+			|| Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value');
+		if (!desc) return;
+		this.#originalValueDesc = desc;
+		const self = this;
+		Object.defineProperty(ta, 'value', {
+			get() { return desc.get.call(this); },
+			set(v) {
+				desc.set.call(this, v);
+				self.#renderLineNumbers();
+			},
+			configurable: true,
+		});
+	}
+
+	#unhookValueSetter() {
+		if (!this.#textarea || !this.#originalValueDesc) return;
+		delete this.#textarea.value;
+		this.#originalValueDesc = null;
+	}
+
+	refresh() {
+		this.#renderLineNumbers();
+	}
+
+	#syncOverlayInset() {
+		if (!this.#textarea) return;
+		const cs = getComputedStyle(this.#textarea);
+		const gutterWidth = this.#gutter.offsetWidth;
+		this.#overlay.style.top = cs.borderTopWidth;
+		this.#overlay.style.bottom = cs.borderBottomWidth;
+		this.#overlay.style.left = (gutterWidth + parseFloat(cs.borderLeftWidth)) + "px";
+		this.#overlay.style.right = cs.borderRightWidth;
+	}
+
+	#renderHighlights() {
 		const attr = this.getAttribute("highlight");
 		if (!attr) {
-			this._overlay.innerHTML = "";
-			this._highlightRanges = null;
+			this.#overlay.innerHTML = "";
+			this.#highlightRanges = null;
 			return;
 		}
 
-		this._highlightRanges = this._parseLineRanges(attr);
-		this._overlay.innerHTML = "";
-		for (const range of this._highlightRanges) {
+		this.#highlightRanges = this.#parseLineRanges(attr);
+		this.#overlay.innerHTML = "";
+		for (const range of this.#highlightRanges) {
 			const bar = document.createElement("div");
 			bar.style.cssText =
 				"position:absolute;left:0;right:0;" +
 				"pointer-events:none;background:rgba(74,144,226,0.15);";
-			this._overlay.appendChild(bar);
+			this.#overlay.appendChild(bar);
 		}
-		this._updateHighlightPositions();
+		this.#updateHighlightPositions();
 	}
 
-	_updateHighlightPositions() {
-		if (!this._textarea || !this._highlightRanges) return;
-		const ta = this._textarea;
-		const bars = this._overlay.children;
+	#updateHighlightPositions() {
+		if (!this.#textarea || !this.#highlightRanges) return;
+		const ta = this.#textarea;
+		const bars = this.#overlay.children;
 		const lines = ta.value.split('\n');
 		const paddingBottom = parseFloat(getComputedStyle(ta).paddingBottom);
 
-		const mirror = this._getMirror();
-		for (let i = 0; i < this._highlightRanges.length; i++) {
-			const { start, end } = this._highlightRanges[i];
+		const mirror = this.#getMirror();
+		for (let i = 0; i < this.#highlightRanges.length; i++) {
+			const { start, end } = this.#highlightRanges[i];
 			// scrollHeight = paddingTop + contentHeight + paddingBottom
 			// Subtract paddingBottom to get position relative to padding-box top
 			mirror.textContent = start > 1 ? lines.slice(0, start - 1).join('\n') : '';
@@ -123,23 +207,23 @@ class CEditor extends HTMLElement {
 		}
 	}
 
-	_getMirror() {
-		if (this._mirror) {
-			this._syncMirrorStyles();
-			return this._mirror;
+	#getMirror() {
+		if (this.#mirror) {
+			this.#syncMirrorStyles();
+			return this.#mirror;
 		}
 		const m = document.createElement('div');
 		m.style.cssText = 'position:absolute;visibility:hidden;pointer-events:none;height:auto;overflow:hidden;';
 		this.shadowRoot.appendChild(m);
-		this._mirror = m;
-		this._syncMirrorStyles();
+		this.#mirror = m;
+		this.#syncMirrorStyles();
 		return m;
 	}
 
-	_syncMirrorStyles() {
-		const ta = this._textarea;
+	#syncMirrorStyles() {
+		const ta = this.#textarea;
 		const cs = getComputedStyle(ta);
-		const m = this._mirror;
+		const m = this.#mirror;
 		for (const p of [
 			'font', 'letterSpacing', 'wordSpacing', 'textIndent',
 			'whiteSpace', 'wordWrap', 'overflowWrap', 'wordBreak',
@@ -154,7 +238,58 @@ class CEditor extends HTMLElement {
 		m.style.width = ta.clientWidth + 'px';
 	}
 
-	_parseLineRanges(attr) {
+	#renderLineNumbers() {
+		if (!this.#textarea) return;
+		const ta = this.#textarea;
+		const lines = ta.value.split('\n');
+		const lineCount = lines.length;
+
+		// Update gutter width based on digit count
+		const digits = String(lineCount).length;
+		this.#gutter.style.width = (digits + 1) + "ch";
+
+		// Sync font/lineHeight/padding from textarea
+		const cs = getComputedStyle(ta);
+		this.#gutter.style.font = cs.font;
+		this.#gutter.style.lineHeight = cs.lineHeight;
+		this.#gutter.style.paddingTop = cs.paddingTop;
+		this.#gutter.style.paddingBottom = cs.paddingBottom;
+
+		// Measure per-line heights: render all lines into mirror as divs, one reflow
+		const mirror = this.#getMirror();
+		mirror.innerHTML = '';
+		const mirrorLines = [];
+		for (let i = 0; i < lineCount; i++) {
+			const d = document.createElement('div');
+			d.textContent = lines[i] || '\u200b';
+			mirror.appendChild(d);
+			mirrorLines.push(d);
+		}
+
+		// Single reflow then batch-read all heights
+		const frag = document.createDocumentFragment();
+		for (let i = 0; i < lineCount; i++) {
+			const div = document.createElement('div');
+			div.textContent = i + 1;
+			div.style.height = mirrorLines[i].offsetHeight + 'px';
+			div.style.overflow = 'hidden';
+			frag.appendChild(div);
+		}
+
+		this.#gutter.innerHTML = '';
+		this.#gutter.appendChild(frag);
+		this.#lastLineCount = lineCount;
+
+		// Re-sync overlay inset since gutter width may have changed
+		this.#syncOverlayInset();
+	}
+
+	#syncGutterScroll() {
+		if (!this.#textarea) return;
+		this.#gutter.scrollTop = this.#textarea.scrollTop;
+	}
+
+	#parseLineRanges(attr) {
 		return attr.split(",").map(part => {
 			part = part.trim();
 			const dash = part.indexOf("-");
@@ -170,8 +305,8 @@ class CEditor extends HTMLElement {
 	}
 
 	scrollToLine(lineNumber) {
-		if (!this._textarea) return;
-		const ta = this._textarea;
+		if (!this.#textarea) return;
+		const ta = this.#textarea;
 		const lines = ta.value.split('\n');
 		if (lineNumber < 1 || lineNumber > lines.length) return;
 		let pos = 0;

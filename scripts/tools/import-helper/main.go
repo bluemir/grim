@@ -9,13 +9,23 @@ import (
 	"strings"
 )
 
+type stringSlice []string
+
+func (s *stringSlice) String() string { return strings.Join(*s, ",") }
+func (s *stringSlice) Set(v string) error {
+	*s = append(*s, v)
+	return nil
+}
+
 func main() {
 
 	var source string
 	var target string
+	var excludes stringSlice
 
 	flag.StringVar(&source, "dir", "", "")
 	flag.StringVar(&target, "target", "", "target-file")
+	flag.Var(&excludes, "exclude", "relative path to exclude (repeatable)")
 
 	flag.Parse()
 
@@ -23,6 +33,11 @@ func main() {
 	if err != nil {
 		fmt.Println(err)
 		return
+	}
+
+	excludeSet := map[string]bool{}
+	for _, e := range excludes {
+		excludeSet[e] = true
 	}
 
 	jsFiles := []string{}
@@ -39,6 +54,10 @@ func main() {
 		}
 
 		if path == selfRef { // remove self reference
+			return nil
+		}
+
+		if excludeSet[path] {
 			return nil
 		}
 

@@ -14,7 +14,7 @@ WEB_META      := assets/manifest.json assets/favicon.ico
 OPTIONAL_CLEAN += assets/src/js/index.js
 assets/src/js/index.js: $(JS_SOURCES) scripts/tools/import-helper/*
 	mkdir -p $(dir $@)
-	go run ./scripts/tools/import-helper --dir=assets/src/js --target=$@
+	go run ./scripts/tools/import-helper --dir=assets/src/js --target=$@ --exclude=elements/grim-viewer.js
 
 ## dev build:
 build/$(APP_NAME): assets/src/js/index.js

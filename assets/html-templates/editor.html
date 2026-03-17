@@ -161,11 +161,13 @@
                     <div class="editor-toolbar">
                         <button id="format-btn" title="Format code (Shift+Alt+F)">Format</button>
                     </div>
-                    <textarea id="code-editor" is="enhanced-textarea"
-                        tab-size="4"
-                        indent="tab"
-                        submit-shortcut
-                    ></textarea>
+                    <c-editor id="code-editor-wrapper">
+                        <textarea id="code-editor" is="enhanced-textarea"
+                            tab-size="4"
+                            indent="tab"
+                            submit-shortcut
+                        ></textarea>
+                    </c-editor>
                 </div>
                 <div col="6" id="svg-preview" tabindex="0">
                     <div class="zoom-controls">
@@ -186,6 +188,7 @@
         <script src="/static/{{rev .}}/bundle/wasm/wasm_exec.js"></script>
         <script type="module">
             const editor = document.getElementById("code-editor");
+            const editorWrapper = document.getElementById("code-editor-wrapper");
             const preview = document.getElementById("svg-preview");
             const svgContainer = document.getElementById("svg-container");
 
@@ -487,7 +490,7 @@
                 if (e.code === "Escape" && (selectedGroup || selectedEdge)) {
                     if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeResizeHandles(); }
                     if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
-                    editor.removeAttribute("line-highlight");
+                    editorWrapper.removeAttribute("highlight");
                     return;
                 }
                 if (!ARROW_CODES.has(e.code)) return;
@@ -752,7 +755,7 @@
                 if (!group) {
                     if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeResizeHandles(); }
                     if (selectedEdge) { selectedEdge.classList.remove("selected"); selectedEdge = null; }
-                    editor.removeAttribute("line-highlight");
+                    editorWrapper.removeAttribute("highlight");
                     return;
                 }
                 const svg = svgContainer.querySelector("svg");
@@ -938,8 +941,8 @@
                         selectedEdge = edgeGroup;
                         edgeGroup.classList.add("selected");
                         const edgeLine = parseInt(edgeGroup.dataset.line);
-                        editor.scrollToLine(edgeLine);
-                        editor.setAttribute("line-highlight", String(edgeLine));
+                        editorWrapper.scrollToLine(edgeLine);
+                        editorWrapper.setAttribute("highlight", String(edgeLine));
                         preview.focus();
                     } else {
                         // Node click: select node, deselect edge
@@ -950,8 +953,8 @@
                         group.classList.add("selected");
                         attachResizeHandles(group);
                         const nodeLine = parseInt(group.dataset.line);
-                        editor.scrollToLine(nodeLine);
-                        editor.setAttribute("line-highlight", String(nodeLine));
+                        editorWrapper.scrollToLine(nodeLine);
+                        editorWrapper.setAttribute("highlight", String(nodeLine));
                         preview.focus();
                     }
                     return;

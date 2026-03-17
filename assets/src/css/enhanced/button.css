@@ -1,4 +1,4 @@
-button[enhanced], [role="btn"] {
+button[enhanced], [role="btn"],  [role="button"] {
     border: none;
     padding: 0.3rem 0.5rem;
     margin: 0.2rem;
@@ -12,14 +12,19 @@ button[enhanced], [role="btn"] {
 		font-size: inherit;
 	}
 
+	text-decoration: none;
+
 	/* colors */
 	background: var(--gray-200);
+	color: black;
+
 	&:hover {
 		background: var(--gray-400);
 	}
 
 	&[enhanced=primary] {
 		background: var(--green-300);
+		color: white;
 
 		&:hover {
 			background: var(--green-600);

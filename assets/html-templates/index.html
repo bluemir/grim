@@ -13,6 +13,8 @@
 			#hero-contents {
 				background-color: var(--blue-gray-600);
 				color: var(--gray-200);
+				text-align: center;
+				padding: 3rem 1rem;
 			}
 			#hero-contents h1 {
 				font-size: 2.5rem;
@@ -27,13 +29,34 @@
 				font-size: 1rem;
 				padding: 0.5rem 1.2rem;
 			}
-			#hero-contents grim-viewer {
-				display: block;
-				width: 100%;
-				min-height: 280px;
-				background: var(--blue-gray-700);
+			#demo {
+				padding: 2rem;
+			}
+			#demo-source {
+				background: var(--gray-800);
+				color: var(--green-300);
+				padding: 1rem;
 				border-radius: 0.5rem;
-				padding: 0.5rem;
+				font-family: monospace;
+				font-size: 0.85rem;
+				line-height: 1.6;
+				overflow: auto;
+				min-height: 280px;
+				margin: 0;
+				white-space: pre;
+			}
+			#demo-svg-container {
+				background: white;
+				border: 1px solid var(--gray-300);
+				border-radius: 0.5rem;
+				min-height: 280px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+			#demo-svg-container svg {
+				width: 100%;
+				height: 100%;
 			}
 			#features {
 				text-align: center;
@@ -62,37 +85,20 @@
 		</header>
 		<main>
 			<section id="hero-contents">
+				<h1>grim</h1>
+				<p>코드로 구조화하고, 마우스로 완성하는 다이어그램 도구</p>
+				<section>
+					<a role="btn" enhanced="primary" href="/editor">Editor</a>
+					<a role="btn" href="/guide">Guide</a>
+				</section>
+			</section>
+			<section id="demo">
 				<div row grid>
-					<div col="7">
-						<h1>grim</h1>
-						<p>
-							코드로 구조화하고, 마우스로 완성하는 다이어그램 도구
-						</p>
-						<section>
-							<a role="btn" enhanced="primary" href="/editor">Editor</a>
-							<a role="btn" href="/guide">Guide</a>
-						</section>
-					</div>
 					<div col="5">
-						<grim-viewer>
-@style {fill: blue-500, font-color: white}
-client: "Browser"
-
-@style {fill: green-500, font-color: white}
-server: "API Server"
-
-@shape cylinder
-@style {fill: orange-500, font-color: white}
-db: "Database"
-
-@shape cloud
-@style {fill: purple-400, font-color: white}
-cloud: "Cloud Storage"
-
-client -> server: "HTTP Request"
-server -> db: "Query"
-server -> cloud: "Upload"
-						</grim-viewer>
+						<pre id="demo-source"></pre>
+					</div>
+					<div col="7">
+						<div id="demo-svg-container"></div>
 					</div>
 				</div>
 			</section>
@@ -116,5 +122,158 @@ server -> cloud: "Upload"
 				</div>
 			</section>
 		</main>
+		<script type="module">
+			const DEMO_TEXT = `
+client {
+	@layout {x: 33, y: 48,w: 112}
+	@text "Browser"
+	@style {font-color: white, fill: blue-500}
+}
+
+server {
+	@text "Backend"
+	@layout {x: 16, y: 160}
+	@style {dash: "5,3"}
+	api {
+		@text "API Server"
+		@layout {x: 16, y: 16, w: 112}
+		@style {font-color: white, fill: green-500}
+	}
+
+	worker {
+		@text "Worker"
+		@layout {x: 16, y: 112, w: 112}
+		@style {font-color: white, fill: green-300}
+	}
+}
+
+db {
+	@shape cylinder
+	@text "Database"
+	@layout {x: 208, y: 288, h: 80}
+	@style {font-color: white, fill: orange-500}
+}
+
+client -> server.api: "HTTP Request"
+server.api -> db: "Query"
+server.api -> server.worker: "Enqueue"
+`;
+
+			const sourceEl = document.getElementById("demo-source");
+			const svgContainer = document.getElementById("demo-svg-container");
+			let text = DEMO_TEXT;
+
+			// Wait for WASM to load
+			while (typeof grimRender === "undefined") {
+				await new Promise(r => setTimeout(r, 50));
+			}
+
+			const GRID_SIZE = 16;
+
+			function snap(value) {
+				return Math.round(value / GRID_SIZE) * GRID_SIZE;
+			}
+
+			function getSVGPoint(svg, clientX, clientY) {
+				const rect = svg.getBoundingClientRect();
+				const vb = svg.viewBox.baseVal;
+				return {
+					x: (clientX - rect.left) * (vb.width / rect.width),
+					y: (clientY - rect.top)  * (vb.height / rect.height),
+				};
+			}
+
+			function findNodeGroup(el) {
+				while (el && el !== svgContainer) {
+					if (el.tagName === "g" && el.dataset.id && el.dataset.x !== undefined) {
+						return el;
+					}
+					el = el.parentElement;
+				}
+				return null;
+			}
+
+			function render() {
+				sourceEl.textContent = text;
+				svgContainer.innerHTML = grimRender(text);
+			}
+
+			render();
+
+			// Drag state machine
+			let dragState = null;
+
+			svgContainer.addEventListener("mousedown", (e) => {
+				const group = findNodeGroup(e.target);
+				if (!group) return;
+				const svg = svgContainer.querySelector("svg");
+				if (!svg) return;
+
+				const startPt = getSVGPoint(svg, e.clientX, e.clientY);
+				const parentGroup = group.parentElement.closest("g[data-id]");
+				dragState = {
+					group,
+					svg,
+					startSVG: startPt,
+					startClientX: e.clientX,
+					startClientY: e.clientY,
+					origX: parseFloat(group.dataset.x),
+					origY: parseFloat(group.dataset.y),
+					parentX: parentGroup ? parseFloat(parentGroup.dataset.x || 0) : null,
+					parentY: parentGroup ? parseFloat(parentGroup.dataset.y || 0) : null,
+				};
+				svg.style.cursor = "grabbing";
+				e.preventDefault();
+			});
+
+			window.addEventListener("mousemove", (e) => {
+				if (!dragState) return;
+				const pt = getSVGPoint(dragState.svg, e.clientX, e.clientY);
+				const snapDx = snap(dragState.origX + (pt.x - dragState.startSVG.x)) - dragState.origX;
+				const snapDy = snap(dragState.origY + (pt.y - dragState.startSVG.y)) - dragState.origY;
+				const localX = parseFloat(dragState.group.dataset.localX || "0");
+				const localY = parseFloat(dragState.group.dataset.localY || "0");
+				dragState.group.setAttribute("transform", `translate(${localX + snapDx}, ${localY + snapDy})`);
+			});
+
+			window.addEventListener("mouseup", (e) => {
+				if (!dragState) return;
+				const { group, svg, startSVG, startClientX, startClientY, origX, origY, parentX, parentY } = dragState;
+				dragState = null;
+				svg.style.cursor = "";
+
+				const pixelDist = Math.hypot(e.clientX - startClientX, e.clientY - startClientY);
+				if (pixelDist < 5) return;
+
+				const pt = getSVGPoint(svg, e.clientX, e.clientY);
+				const rawX = snap(origX + pt.x - startSVG.x);
+				const rawY = snap(origY + pt.y - startSVG.y);
+				const LABEL_HEIGHT = 24;
+				let newX, newY;
+				if (parentX !== null) {
+					newX = snap(rawX - parentX);
+					newY = snap(rawY - parentY - LABEL_HEIGHT);
+				} else {
+					newX = rawX;
+					newY = rawY;
+				}
+
+				const id = group.dataset.id;
+				text = grimSetLayout(text, id, newX, newY);
+				render();
+			});
+
+			// Hover cursor hint
+			svgContainer.addEventListener("mouseover", (e) => {
+				if (findNodeGroup(e.target)) {
+					svgContainer.style.cursor = "grab";
+				}
+			});
+			svgContainer.addEventListener("mouseout", (e) => {
+				if (findNodeGroup(e.target)) {
+					svgContainer.style.cursor = "";
+				}
+			});
+		</script>
 	</body>
 </html>

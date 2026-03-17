@@ -132,4 +132,4 @@ A -> B -> C
 ## 다음 단계
 
 - [메타데이터 지시자](metadata) — `@layout`, `@style` 등의 상세 문법을 배웁니다.
-- [Shape 종류](../reference/shapes) — 10종의 노드 모양을 확인합니다.
+- [Shape 종류](../reference/shapes) — 8종의 노드 모양을 확인합니다.

@@ -50,7 +50,7 @@ my-node
 | `@shape` | 노드의 모양 (사각형, 원, 다이아몬드 등) |
 | `@text` | 노드에 표시할 텍스트 (plain, markdown, latex 지원) |
 | `@edge` | 엣지의 라우팅 (anchor, waypoint, gap) |
-| `@icon` | 노드에 표시할 아이콘 이미지 URL |
+| `@icon` | 노드에 표시할 아이콘 (이미지 URL 또는 내장 종류: `user`, `bot`) |
 
 자세한 내용은 [메타데이터 지시자](syntax/metadata)를 참고하세요.
 

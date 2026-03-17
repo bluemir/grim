@@ -215,7 +215,7 @@ func renderMarkdownLabel(b *strings.Builder, node *LayoutNode, absX, absY float6
 		indent, foX, foY, foW, foH,
 	))
 	b.WriteString(fmt.Sprintf(
-		`%s    <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:%.0fpx;color:%s;overflow:hidden;padding:2px;box-sizing:border-box;width:100%%;height:100%%">`+"\n",
+		`%s    <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:%.0fpx;color:%s;overflow:hidden;padding:2px;box-sizing:border-box;width:100%%;height:100%%;text-align:left">`+"\n",
 		indent, node.Style.FontSize, node.Style.FontColor,
 	))
 	b.WriteString(`<style>*{margin:0;padding:0;box-sizing:border-box}` +

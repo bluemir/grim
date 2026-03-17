@@ -282,6 +282,7 @@ class CEditor extends HTMLElement {
 
 		// Re-sync overlay inset since gutter width may have changed
 		this.#syncOverlayInset();
+		this.#updateHighlightPositions();
 	}
 
 	#syncGutterScroll() {

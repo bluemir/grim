@@ -17,6 +17,8 @@ class EnhancedTextarea extends HTMLTextAreaElement{
 		super()
 	}
 	onConnected()  {
+		this.style.padding = "0.2rem"
+
 		if(this.hasAttribute("auto-resize")) {
 			this.enableAutoResize();
 		}

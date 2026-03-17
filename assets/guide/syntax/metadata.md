@@ -1,6 +1,6 @@
 # 메타데이터 지시자
 
-메타데이터 지시자는 노드 또는 엣지 선언 바로 위나 블록(`{ }`) 안에 작성합니다. GUI 조작 결과도 이 형식으로 자동 삽입됩니다.
+메타데이터 지시자는 블록(`{ }`) 안에 작성합니다. GUI 조작 결과도 이 형식으로 자동 삽입됩니다.
 
 ---
 
@@ -9,11 +9,13 @@
 노드의 위치와 크기를 지정합니다. GUI로 노드를 이동하거나 크기를 조절하면 자동으로 생성됩니다.
 
 ```grim
-@layout {x: 100, y: 150}
-my-node
+my-node {
+    @layout {x: 100, y: 150}
+}
 
-@layout {x: 100, y: 150, w: 200, h: 80}
-my-node
+my-node {
+    @layout {x: 100, y: 150, w: 200, h: 80}
+}
 ```
 
 | 속성 | 설명 | 기본값 |
@@ -28,18 +30,21 @@ my-node
 
 ```grim
 parent {
-    @layout {x: 0, y: 0}
-    child1
-    @layout {x: 200, y: 0}
-    child2
+    child1 {
+        @layout {x: 0, y: 0}
+    }
+    child2 {
+        @layout {x: 200, y: 0}
+    }
 }
 ```
 
 `stack` 속성은 동일한 노드가 여러 개 있음을 시각적으로 표현할 때 사용합니다.
 
 ```grim
-@layout {stack: 3}
-workers: "Worker 인스턴스"
+workers: "Worker 인스턴스" {
+    @layout {stack: 3}
+}
 ```
 
 ---
@@ -49,8 +54,9 @@ workers: "Worker 인스턴스"
 노드와 엣지의 시각적 스타일을 지정합니다.
 
 ```grim
-@style {fill: blue-500, stroke: black, font-color: white, shadow: 3}
-my-node
+my-node {
+    @style {fill: blue-500, stroke: black, font-color: white, shadow: 3}
+}
 ```
 
 전체 속성 목록은 [스타일 속성](../reference/styles)을 참고하세요.
@@ -62,11 +68,13 @@ my-node
 노드의 모양을 지정합니다.
 
 ```grim
-@shape circle
-my-node
+my-node {
+    @shape circle
+}
 
-@shape diamond
-decision
+decision {
+    @shape diamond
+}
 ```
 
 지원되는 모양: `rectangle`(기본값), `rounded`, `circle`, `diamond`, `cylinder`, `cloud`, `hexagon`, `parallelogram`
@@ -202,21 +210,15 @@ actor2 {
 ## 지시자 배치 규칙
 
 - 여러 지시자를 함께 사용할 수 있습니다.
-- 노드 선언 바로 위에 작성하거나, 블록(`{ }`) 내부에 작성합니다.
+- 지시자는 반드시 블록(`{ }`) 내부에 작성합니다.
 - 콜론 문자열(`node: "text"`)과 블록 `@text`를 동시에 사용할 수 없습니다.
 
 ```grim
-# 올바른 사용법 — 선언 위에 지시자
-@layout {x: 100, y: 100}
-@style {fill: blue-500}
-@shape rounded
-server: "API 서버"
-
 # 올바른 사용법 — 블록 내부에 지시자
-@layout {x: 100, y: 100}
 server {
+    @layout {x: 100, y: 100}
     @style {fill: blue-500}
     @shape rounded
-    @text API 서버
+    @text "API 서버"
 }
 ```

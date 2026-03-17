@@ -68,12 +68,15 @@ server -> database: "SQL 쿼리"
 코드가 아래처럼 변경됩니다:
 
 ```grim
-@layout {x: 0, y: 0}
-client: "웹 브라우저"
-@layout {x: 200, y: 0}
-server: "API 서버"
-@layout {x: 400, y: 0}
-database: "PostgreSQL"
+client: "웹 브라우저" {
+    @layout {x: 0, y: 0}
+}
+server: "API 서버" {
+    @layout {x: 200, y: 0}
+}
+database: "PostgreSQL" {
+    @layout {x: 400, y: 0}
+}
 
 client -> server: "HTTP 요청"
 server -> database: "SQL 쿼리"
@@ -86,18 +89,24 @@ server -> database: "SQL 쿼리"
 노드에 색상과 모양을 지정합니다.
 
 ```grim
-@layout {x: 0, y: 0}
-@style {fill: blue-500, font-color: white}
-client: "웹 브라우저"
+client {
+    @layout {x: 0, y: 0}
+    @style {fill: blue-500, font-color: white}
+    @text "웹 브라우저"
+}
 
-@layout {x: 200, y: 0}
-@style {fill: green-500, font-color: white}
-server: "API 서버"
+server {
+    @layout {x: 200, y: 0}
+    @style {fill: green-500, font-color: white}
+    @text "API 서버"
+}
 
-@layout {x: 400, y: 0}
-@shape cylinder
-@style {fill: orange-500, font-color: white}
-database: "PostgreSQL"
+database {
+    @layout {x: 400, y: 0}
+    @shape cylinder
+    @style {fill: orange-500, font-color: white}
+    @text "PostgreSQL"
+}
 
 client -> server: "HTTP 요청"
 server -> database: "SQL 쿼리"

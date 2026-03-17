@@ -7,8 +7,9 @@
 ## 노드 스타일 속성
 
 ```grim
-@style {fill: blue-500, stroke: black, stroke-width: 2, font-color: white, shadow: 3}
-my-node
+my-node {
+    @style {fill: blue-500, stroke: black, stroke-width: 2, font-color: white, shadow: 3}
+}
 ```
 
 | 속성 | 설명 | 예시 값 |
@@ -49,17 +50,17 @@ A -> B {
 표준 CSS 색상 표기를 지원합니다.
 
 ```grim
-@style {fill: #3498db}
-@style {fill: rgb(52, 152, 219)}
-@style {fill: rgba(52, 152, 219, 0.5)}
+node { @style {fill: #3498db} }
+node { @style {fill: rgb(52, 152, 219)} }
+node { @style {fill: rgba(52, 152, 219, 0.5)} }
 ```
 
 ### 편의 색상
 
 ```grim
-@style {fill: black}
-@style {fill: white}
-@style {fill: transparent}
+node { @style {fill: black} }
+node { @style {fill: white} }
+node { @style {fill: transparent} }
 ```
 
 ### Material Design 색상 팔레트
@@ -67,9 +68,9 @@ A -> B {
 `{색상 이름}-{단계}` 형식으로 사용합니다.
 
 ```grim
-@style {fill: blue-500}
-@style {fill: gray-100}
-@style {fill: red-900}
+node { @style {fill: blue-500} }
+node { @style {fill: gray-100} }
+node { @style {fill: red-900} }
 ```
 
 **단계**: `50`, `100`, `200`, `300`, `400`, `500`, `600`, `700`, `800`, `900`
@@ -106,16 +107,19 @@ A -> B {
 
 ```grim
 # 강조 노드
-@style {fill: blue-500, font-color: white, shadow: 4, border-radius: 8}
-primary-node: "강조 표시"
+primary-node: "강조 표시" {
+    @style {fill: blue-500, font-color: white, shadow: 4, border-radius: 8}
+}
 
 # 비활성 노드
-@style {fill: gray-200, stroke: gray-400, opacity: 0.6}
-disabled-node: "비활성"
+disabled-node: "비활성" {
+    @style {fill: gray-200, stroke: gray-400, opacity: 0.6}
+}
 
 # 점선 테두리
-@style {stroke: red-500, dash: 5,3, fill: transparent}
-boundary: "경계선"
+boundary: "경계선" {
+    @style {stroke: red-500, dash: 5,3, fill: transparent}
+}
 
 # 점선 엣지
 A -> B {

@@ -18,30 +18,37 @@
 ## 코드 예시
 
 ```grim
-@shape rectangle
-node-a: "일반 사각형"
+node-a: "일반 사각형" {
+    @shape rectangle
+}
 
-@shape rounded
-node-b: "둥근 사각형"
+node-b: "둥근 사각형" {
+    @shape rounded
+}
 
-@shape circle
-node-c: "원"
+node-c: "원" {
+    @shape circle
+}
 
-@shape diamond
-node-d: "다이아몬드"
+node-d: "다이아몬드" {
+    @shape diamond
+}
 
-@shape cylinder
-database: "데이터베이스"
+database: "데이터베이스" {
+    @shape cylinder
+}
 
-@shape cloud
-cloud-service: "클라우드"
+cloud-service: "클라우드" {
+    @shape cloud
+}
 
-@shape hexagon
-node-e: "육각형"
+node-e: "육각형" {
+    @shape hexagon
+}
 
-@shape parallelogram
-node-f: "평행사변형"
-
+node-f: "평행사변형" {
+    @shape parallelogram
+}
 ```
 
 ## 사용 팁

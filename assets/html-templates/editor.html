@@ -465,7 +465,7 @@
                 if (dataParam) {
                     url.hash = "data=" + dataParam;
                 }
-                window.open(url.toString(), "_blank");
+                window.location.href = url.toString();
             });
 
             // --- WASD 부드러운 스크롤 ---

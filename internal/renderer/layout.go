@@ -37,6 +37,7 @@ type NodeStyle struct {
 	Shadow       float64 // 0 = none; blur radius in px
 	Opacity      float64 // 0 = use default (1.0)
 	BorderRadius float64 // -1 = shape default; >=0 = explicit rx value
+	TextAlign    string  // "" = center (default); "left", "right"
 }
 
 // EdgeStyle holds visual properties for an edge.
@@ -676,6 +677,12 @@ func applyNodeStyle(style *NodeStyle, values map[string]interface{}) {
 	}
 	if v, ok := values["border-radius"]; ok {
 		style.BorderRadius = toFloat(v)
+	}
+	if v, ok := values["text-align"]; ok {
+		s := toString(v)
+		if s == "left" || s == "right" || s == "center" {
+			style.TextAlign = s
+		}
 	}
 }
 

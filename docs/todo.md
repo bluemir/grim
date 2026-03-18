@@ -19,11 +19,13 @@
 	- editor 에서 사용되는 UI 요소는 제거
 	- Click 시 highlight 만 제공(겹쳐진 선 이나 도형 식별용)
 - [ ] 에러 시 마지막 유효 SVG 유지 + 에러 표시
-- [ ] enhanced textarea 에서 실행 취소/재실행 올바르게 동작하게 하기
+- [ ] ~~enhanced textarea 에서 실행 취소/재실행 올바르게 동작하게 하기~~
 - [x] node 크기를 마우스롤 조절할수 있도록
 - [ ] node 모양을 마우스로 바꿀수 있도록
 	- node를 선택 시 조그마한 dropdown 버튼이 나오고 클릭해서 바꾸기
 - [ ] 중첩된 node 내에서도 12 grid 기반 자동 배치 지원
+	- fixed 된 node 아래에 배치
+	-
 - [x] 마우스로 node를 선택하면 하면 해당 블록이 선언된 곳으로 textarea 의 커서를 이동
 	- 선택시 선택된것을 표시
 	- textarea 가 선택된 상태가 되긴 하나 해당 선택 구역으로 scroll 되지 않음. 스크롤 되도록 해야 함
@@ -48,7 +50,7 @@
 	- 가이드 링크
 	- local render 안내
 	- build 방법 안내
-- [ ] text align 스타일 추가
+- [x] text align 스타일 추가
 - [ ] parse 에러 나면 에러난 위치 알려주기
 - [ ] editor 에서 코드와 그림의 비율을 조절할수 있는 기능
 - [x] editor 에서 코드창을 잠깐 접어둘수 있는 기능

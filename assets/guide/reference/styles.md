@@ -23,6 +23,7 @@ my-node {
 | `font-size` | 텍스트 크기 (px) | `14` |
 | `font-color` | 텍스트 색상 | `white`, `#fff` |
 | `border-radius` | 모서리 둥글기 (px, `rectangle`·`rounded` 모양만 적용) | `8` |
+| `text-align` | 텍스트 정렬 (`left`, `center`, `right`) | `left` |
 
 ---
 

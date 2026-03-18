@@ -215,8 +215,13 @@ func renderMarkdownLabel(b *strings.Builder, node *LayoutNode, absX, absY float6
 		indent, foX, foY, foW, foH,
 	))
 	b.WriteString(fmt.Sprintf(
-		`%s    <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:%.0fpx;color:%s;overflow:hidden;padding:2px;box-sizing:border-box;width:100%%;height:100%%;text-align:left">`+"\n",
-		indent, node.Style.FontSize, node.Style.FontColor,
+		`%s    <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:%.0fpx;color:%s;overflow:hidden;padding:2px;box-sizing:border-box;width:100%%;height:100%%;text-align:%s">`+"\n",
+		indent, node.Style.FontSize, node.Style.FontColor, func() string {
+			if node.Style.TextAlign != "" {
+				return node.Style.TextAlign
+			}
+			return "left"
+		}(),
 	))
 	b.WriteString(`<style>*{margin:0;padding:0;box-sizing:border-box}` +
 		`h1,h2,h3,h4,h5,h6{font-size:inherit;font-weight:bold}` +
@@ -227,8 +232,20 @@ func renderMarkdownLabel(b *strings.Builder, node *LayoutNode, absX, absY float6
 	b.WriteString(fmt.Sprintf("%s  </foreignObject>\n", indent))
 }
 
+func textAnchorForAlign(align string) (anchor string, xFn func(absX, w float64) float64) {
+	switch align {
+	case "left":
+		return "start", func(absX, w float64) float64 { return absX + 4 }
+	case "right":
+		return "end", func(absX, w float64) float64 { return absX + w - 4 }
+	default:
+		return "middle", func(absX, w float64) float64 { return absX + w/2 }
+	}
+}
+
 func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float64, indent string) {
-	textX := absX + node.W/2
+	anchor, xFn := textAnchorForAlign(node.Style.TextAlign)
+	textX := xFn(absX, node.W)
 	var centerY float64
 	switch {
 	case hasIcon(node):
@@ -238,10 +255,16 @@ func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float
 			labelAreaH := node.H - sz - iconGap
 			centerY = absY + labelAreaH/2 + node.Style.FontSize/2 - 2
 		case "left":
-			textX = absX + (node.W+sz+iconGap)/2
+			textAreaX := absX + sz + iconGap
+			textAreaW := node.W - sz - iconGap
+			_, xFnIcon := textAnchorForAlign(node.Style.TextAlign)
+			textX = xFnIcon(textAreaX, textAreaW)
 			centerY = absY + node.H/2 + node.Style.FontSize/2 - 2
 		case "right":
-			textX = absX + (node.W-sz-iconGap)/2
+			textAreaX := absX
+			textAreaW := node.W - sz - iconGap
+			_, xFnIcon := textAnchorForAlign(node.Style.TextAlign)
+			textX = xFnIcon(textAreaX, textAreaW)
 			centerY = absY + node.H/2 + node.Style.FontSize/2 - 2
 		default: // "top"
 			iconAreaH := sz + iconGap
@@ -257,8 +280,8 @@ func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float
 	lines := strings.Split(node.Label, "\n")
 	if len(lines) == 1 {
 		b.WriteString(fmt.Sprintf(
-			`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">%s</text>`+"\n",
-			indent, textX, centerY, node.Style.FontSize, escapeXML(node.Style.FontColor), escapeXML(node.Label),
+			`%s  <text x="%.1f" y="%.1f" text-anchor="%s" font-size="%.0f" fill="%s">%s</text>`+"\n",
+			indent, textX, centerY, anchor, node.Style.FontSize, escapeXML(node.Style.FontColor), escapeXML(node.Label),
 		))
 		return
 	}
@@ -266,8 +289,8 @@ func renderPlainTextLabel(b *strings.Builder, node *LayoutNode, absX, absY float
 	// Multiline: shift first line up to center the block vertically
 	firstY := centerY - float64(len(lines)-1)*lineHeight/2
 	b.WriteString(fmt.Sprintf(
-		`%s  <text x="%.1f" y="%.1f" text-anchor="middle" font-size="%.0f" fill="%s">`+"\n",
-		indent, textX, firstY, node.Style.FontSize, escapeXML(node.Style.FontColor),
+		`%s  <text x="%.1f" y="%.1f" text-anchor="%s" font-size="%.0f" fill="%s">`+"\n",
+		indent, textX, firstY, anchor, node.Style.FontSize, escapeXML(node.Style.FontColor),
 	))
 	for i, line := range lines {
 		dy := "0"

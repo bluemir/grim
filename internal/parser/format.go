@@ -10,7 +10,7 @@ import (
 // Priority keys are listed first; remaining keys are sorted alphabetically.
 var metaPriorityKeys = map[string][]string{
 	"layout": {"x", "y", "w", "h"},
-	"style":  {"font-color", "font-size", "fill", "stroke"},
+	"style":  {"font-color", "font-size", "text-align", "fill", "stroke"},
 }
 
 // Format converts an AST Document back to normalized .grim source text.

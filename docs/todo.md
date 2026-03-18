@@ -34,9 +34,19 @@
 - [x] 사용자 문서 작성
 - [x] 화살표 없는 선 지원 `A -- B`
 - [ ] iframe 지원
-- [ ] 배포
+- [x] 배포
 - [ ] @icon 에서 너비 높이픞 지정 할수 있도록 개선
-- [ ] wasm 의 cache 전략 조절
+- [x] wasm 의 cache 전략 조절
 	- rev?
 - [x] 다른 사이트에서 import 할수 있는 custom element
 	- 사용예: `<script type="module" src="grim.bluemir.me/static/elements/grim-viewer.js" ></script><grim-viewer>A -> B</grim-viewer>`
+- [ ] editor page 에서 맥락에 맞는 키 안내 필요
+	- node를 드래그 중에는 `alt: 스냅 무시` , `화살표키: node이동` 과 같은 안내
+	- 스크롤 중에는 `wasd: 이동` 과 같은 안내
+- [ ] readme 작성
+	- service 주소
+	- 가이드 링크
+	- local render 안내
+	- build 방법 안내
+- [ ] text align 스타일 추가
+- [ ] parse 에러 나면 에러난 위치 알려주기

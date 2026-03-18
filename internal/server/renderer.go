@@ -12,6 +12,7 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"github.com/bluemir/grim/assets"
+	"github.com/bluemir/grim/internal/server/injector"
 	"github.com/bluemir/grim/internal/server/middleware/cache"
 )
 
@@ -25,8 +26,8 @@ func NewRenderer() (*template.Template, error) {
 		"rev": func(c *gin.Context) string {
 			return c.GetString(cache.REVVED)
 		},
-		"useCDN": func(c *gin.Context) bool {
-			return c.GetBool("__USE_CDN__")
+		"config": func(c *gin.Context) *injector.FrontendConfig {
+			return injector.Config(c)
 		},
 	})
 

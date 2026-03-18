@@ -17,6 +17,7 @@ import (
 	"github.com/bluemir/grim/assets"
 	"github.com/bluemir/grim/internal/server/backend"
 	"github.com/bluemir/grim/internal/server/controller"
+	"github.com/bluemir/grim/internal/server/injector"
 	"github.com/bluemir/grim/internal/server/store"
 )
 
@@ -36,8 +37,8 @@ type Config struct {
 }
 
 type Server struct {
-	backends *backend.Backends
-	useCDN   bool
+	backends       *backend.Backends
+	frontendConfig *injector.FrontendConfig
 }
 
 func Run(ctx context.Context, args *Args) error {
@@ -65,7 +66,10 @@ func Run(ctx context.Context, args *Args) error {
 
 	server := &Server{
 		backends: bs,
-		useCDN:   args.UseCDN,
+		frontendConfig: &injector.FrontendConfig{
+			UseCDN:         args.UseCDN,
+			StorageEnabled: conf.Backend.Storage.Enabled,
+		},
 	}
 
 	if !logrus.IsLevelEnabled(logrus.DebugLevel) {

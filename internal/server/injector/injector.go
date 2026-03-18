@@ -17,3 +17,19 @@ func Inject(b *backend.Backends) gin.HandlerFunc {
 func Backends(c *gin.Context) *backend.Backends {
 	return c.MustGet(keyBackend).(*backend.Backends)
 }
+
+type FrontendConfig struct {
+	UseCDN         bool `json:"useCDN"`
+	StorageEnabled bool `json:"storageEnabled"`
+}
+
+var keyConfig = xid.New().String()
+
+func InjectConfig(conf *FrontendConfig) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Set(keyConfig, conf)
+	}
+}
+func Config(c *gin.Context) *FrontendConfig {
+	return c.MustGet(keyConfig).(*FrontendConfig)
+}

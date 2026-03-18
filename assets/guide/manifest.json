@@ -5,7 +5,8 @@
       "items": [
         { "title": "빠른 시작", "slug": "getting-started" },
         { "title": "핵심 개념", "slug": "concepts" },
-        { "title": "튜토리얼: 첫 다이어그램", "slug": "tutorial-first-diagram" }
+        { "title": "튜토리얼: 첫 다이어그램", "slug": "tutorial-first-diagram" },
+        { "title": "다이어그램 공유", "slug": "sharing" }
       ]
     },
     {

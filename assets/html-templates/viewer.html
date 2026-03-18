@@ -118,6 +118,10 @@
             );
             go.run(result.instance);
 
+            // --- Storage ID detection ---
+            const pathMatch = window.location.pathname.match(/^\/view\/([a-z0-9]+)$/);
+            const storageId = pathMatch ? pathMatch[1] : null;
+
             // Fragment에서 data 읽기 (하위 호환: query param fallback)
             function getDataFromFragment() {
                 const hash = window.location.hash.slice(1);
@@ -133,15 +137,30 @@
                 return null;
             }
 
-            // URL에서 데이터 복원 및 렌더링
-            const data = getDataFromFragment();
-            if (data) {
+            // URL에서 데이터 복원 및 렌더링 (Storage 또는 fragment)
+            if (storageId) {
                 try {
-                    const source = decodeURIComponent(escape(atob(data)));
-                    const svg = grimRender(source);
-                    svgContainer.innerHTML = svg;
+                    const resp = await fetch(`/api/v1/storage/${storageId}`);
+                    if (resp.ok) {
+                        const diagram = await resp.json();
+                        const svg = grimRender(diagram.source);
+                        svgContainer.innerHTML = svg;
+                    } else {
+                        console.warn("Failed to load diagram from storage:", resp.status);
+                    }
                 } catch (e) {
-                    console.warn("Failed to decode/render data from URL:", e);
+                    console.warn("Failed to load diagram from storage:", e);
+                }
+            } else {
+                const data = getDataFromFragment();
+                if (data) {
+                    try {
+                        const source = decodeURIComponent(escape(atob(data)));
+                        const svg = grimRender(source);
+                        svgContainer.innerHTML = svg;
+                    } catch (e) {
+                        console.warn("Failed to decode/render data from URL:", e);
+                    }
                 }
             }
 
@@ -346,7 +365,11 @@
 
             // --- Open Editor ---
             document.getElementById("open-editor").addEventListener("click", () => {
-                const url = new URL("/editor", window.location.origin);
+                if (storageId) {
+                    window.location.href = `/edit/${storageId}`;
+                    return;
+                }
+                const url = new URL("/edit", window.location.origin);
                 const dataParam = getDataFromFragment();
                 if (dataParam) {
                     url.hash = "data=" + dataParam;

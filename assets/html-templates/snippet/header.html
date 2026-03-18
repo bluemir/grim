@@ -2,7 +2,7 @@
 	{
 		"imports": {
 			"@/": "/static/{{rev .}}/js/",
-			{{if useCDN .}}
+			{{if (config .).UseCDN}}
 			"lit-html": "https://unpkg.com/lit-html@3.2.1/lit-html.js?module",
 			{{else}}
 			"lit-html": "/static/{{rev .}}/bundle/lit-html/lit-html.js",
@@ -13,7 +13,7 @@
 		}
 	}
 </script>
-{{if useCDN .}}
+{{if (config .).UseCDN}}
 <link href="https://unpkg.com/@fortawesome/fontawesome-free@7.2.0/css/all.min.css" rel="stylesheet">
 <link href="https://unpkg.com/material-symbols@0.40.2/outlined.css" rel="stylesheet">
 {{else}}

@@ -180,6 +180,9 @@
                         <button id="zoom-reset" title="Reset zoom">Reset</button>
                         <button id="zoom-fit" title="Fit to view">Fit</button>
                         <button id="export-svg" title="Export as SVG">Export SVG</button>
+                        {{if (config .).StorageEnabled}}
+                        <button id="short-link" title="Save and get short link">Short Link</button>
+                        {{end}}
                         <button id="open-viewer" title="Open read-only viewer">Viewer</button>
                     </div>
                     <div class="svg-container" id="svg-container">
@@ -203,6 +206,12 @@
             );
             go.run(result.instance);
 
+            // --- Storage ID detection ---
+            const storageEnabled = {{ (config .).StorageEnabled }};
+            const pathMatch = window.location.pathname.match(/^\/edit\/([a-z0-9]+)$/);
+            let storageId = pathMatch ? pathMatch[1] : null;
+            let autoSaveTimer = null;
+
             // Fragment에서 data 읽기 (하위 호환: query param fallback)
             function getDataFromFragment() {
                 const hash = window.location.hash.slice(1);
@@ -222,14 +231,45 @@
                 history.replaceState(null, "", window.location.pathname + "#data=" + base64);
             }
 
-            // URL에서 데이터 복원
-            const data = getDataFromFragment();
-            if (data) {
+            // URL에서 데이터 복원 또는 Storage에서 로드
+            if (storageId) {
                 try {
-                    editor.value = decodeURIComponent(escape(atob(data)));
+                    const resp = await fetch(`/api/v1/storage/${storageId}`);
+                    if (resp.ok) {
+                        const diagram = await resp.json();
+                        editor.value = diagram.source;
+                    } else {
+                        console.warn("Failed to load diagram from storage:", resp.status);
+                    }
                 } catch (e) {
-                    console.warn("Failed to decode data from URL:", e);
+                    console.warn("Failed to load diagram from storage:", e);
                 }
+            } else {
+                const data = getDataFromFragment();
+                if (data) {
+                    try {
+                        editor.value = decodeURIComponent(escape(atob(data)));
+                    } catch (e) {
+                        console.warn("Failed to decode data from URL:", e);
+                    }
+                }
+            }
+
+            // Auto-save to storage (debounced)
+            function scheduleAutoSave() {
+                if (!storageId) return;
+                clearTimeout(autoSaveTimer);
+                autoSaveTimer = setTimeout(async () => {
+                    try {
+                        await fetch(`/api/v1/storage/${storageId}`, {
+                            method: "PUT",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ source: editor.value }),
+                        });
+                    } catch (e) {
+                        console.warn("Auto-save failed:", e);
+                    }
+                }, 1000);
             }
 
             // textarea 입력 → WASM 렌더링 → SVG 표시
@@ -261,6 +301,10 @@
             }
 
             function updateURL() {
+                if (storageId) {
+                    scheduleAutoSave();
+                    return;
+                }
                 if (editor.value) {
                     setDataToFragment(btoa(unescape(encodeURIComponent(editor.value))));
                 } else {
@@ -457,9 +501,46 @@
                 URL.revokeObjectURL(url);
             });
 
+            // --- Short Link ---
+
+            const shortLinkBtn = document.getElementById("short-link");
+            if (shortLinkBtn) {
+                shortLinkBtn.addEventListener("click", async () => {
+                    if (!storageId) {
+                        // Create new diagram
+                        try {
+                            const resp = await fetch("/api/v1/storage", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ source: editor.value }),
+                            });
+                            if (!resp.ok) throw new Error("Failed to create diagram");
+                            const diagram = await resp.json();
+                            storageId = diagram.id;
+                            history.replaceState(null, "", `/edit/${storageId}`);
+                            shortLinkBtn.textContent = "Link Copied!";
+                            await navigator.clipboard.writeText(window.location.origin + `/view/${storageId}`);
+                            setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
+                        } catch (e) {
+                            console.error("Short link creation failed:", e);
+                        }
+                    } else {
+                        // Copy view URL to clipboard
+                        const viewUrl = window.location.origin + `/view/${storageId}`;
+                        await navigator.clipboard.writeText(viewUrl);
+                        shortLinkBtn.textContent = "Link Copied!";
+                        setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
+                    }
+                });
+            }
+
             // --- Open Viewer ---
 
             document.getElementById("open-viewer").addEventListener("click", () => {
+                if (storageId) {
+                    window.location.href = `/view/${storageId}`;
+                    return;
+                }
                 const url = new URL("/view", window.location.origin);
                 const dataParam = getDataFromFragment();
                 if (dataParam) {

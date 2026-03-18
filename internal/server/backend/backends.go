@@ -6,6 +6,7 @@ import (
 	"github.com/bluemir/grim/internal/pubsub"
 	"github.com/bluemir/grim/internal/server/backend/auth"
 	"github.com/bluemir/grim/internal/server/backend/posts"
+	"github.com/bluemir/grim/internal/server/backend/storage"
 	"gorm.io/gorm"
 )
 
@@ -14,12 +15,14 @@ type Config struct {
 	Auth struct {
 		Salt string
 	}
-	Posts posts.Config
+	Posts   posts.Config
+	Storage storage.Config
 }
 type Backends struct {
-	Auth   *auth.Manager
-	Events *pubsub.Hub
-	Posts  *posts.Manager
+	Auth    *auth.Manager
+	Events  *pubsub.Hub
+	Posts   *posts.Manager
+	Storage *storage.Manager
 }
 
 func Initialize(ctx context.Context, conf *Config, db *gorm.DB) (*Backends, error) {
@@ -37,10 +40,15 @@ func Initialize(ctx context.Context, conf *Config, db *gorm.DB) (*Backends, erro
 	if err != nil {
 		return nil, err
 	}
+	storageManager, err := storage.New(ctx, &conf.Storage, db)
+	if err != nil {
+		return nil, err
+	}
 
 	return &Backends{
-		Events: events,
-		Auth:   authManager,
-		Posts:  postManager,
+		Events:  events,
+		Auth:    authManager,
+		Posts:   postManager,
+		Storage: storageManager,
 	}, nil
 }

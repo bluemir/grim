@@ -75,13 +75,7 @@ func (server *Server) RunServiceHTTPServer(ctx context.Context, bind string, tls
 		app.Use(location.Default(), fixURL)
 		app.Use(cache.CacheBusting)
 
-		if server.useCDN {
-			app.Use(func(c *gin.Context) {
-				c.Set("__USE_CDN__", true)
-				c.Next()
-			})
-		}
-
+		app.Use(injector.InjectConfig(server.frontendConfig))
 		app.Use(injector.Inject(server.backends))
 
 		// prometheus for monitoring

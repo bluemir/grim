@@ -146,6 +146,14 @@
                 margin: 0 1rem;
                 padding: 0;
             }
+
+            /* Code panel collapse */
+            body[data-code-collapsed] [col="6"]:has(c-editor) {
+                display: none;
+            }
+            body[data-code-collapsed] #svg-preview {
+                grid-column: span 12;
+            }
         </style>
     </head>
     <body layout="one-page">
@@ -164,6 +172,8 @@
                 </div>
                 <div col="6" id="svg-preview" tabindex="0">
                     <div class="zoom-controls">
+                        <button id="toggle-code" title="Toggle code panel (Ctrl+\)">◀ Code</button>
+                        <span style="border-left:1px solid var(--gray-400,#aaa);height:1rem;margin:0 0.15rem"></span>
                         <button id="zoom-out" title="Zoom out">−</button>
                         <span id="zoom-level">100%</span>
                         <button id="zoom-in" title="Zoom in">+</button>
@@ -353,6 +363,24 @@
                 zoomScale = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newScale));
                 applyZoom();
             }
+
+            // Code panel toggle
+            const toggleCodeBtn = document.getElementById("toggle-code");
+            function updateToggleBtn() {
+                const collapsed = document.body.hasAttribute("data-code-collapsed");
+                toggleCodeBtn.textContent = collapsed ? "◀ Code" : "Code ▶";
+            }
+            toggleCodeBtn.addEventListener("click", () => {
+                document.body.toggleAttribute("data-code-collapsed");
+                updateToggleBtn();
+            });
+            document.addEventListener("keydown", (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === "\\") {
+                    e.preventDefault();
+                    document.body.toggleAttribute("data-code-collapsed");
+                    updateToggleBtn();
+                }
+            });
 
             document.getElementById("zoom-in").addEventListener("click", () => {
                 zoomTo(zoomScale + ZOOM_STEP);

@@ -132,8 +132,28 @@ class CEditor extends HTMLElement {
 
 	set value(text) {
 		if (!this.#view) return;
+		// Remember cursor line before replacing
+		const cursorLine = this.#view.state.doc.lineAt(
+			this.#view.state.selection.main.head
+		).number;
 		this.#view.dispatch({
 			changes: { from: 0, to: this.#view.state.doc.length, insert: text },
+		});
+		// Restore cursor to the same line (clamped to new doc length)
+		this.#scrollToLineAfterUpdate(cursorLine);
+	}
+
+	#scrollToLineAfterUpdate(lineNumber) {
+		// Defer so CodeMirror finishes its internal layout/scroll update first
+		requestAnimationFrame(() => {
+			if (!this.#view) return;
+			const doc = this.#view.state.doc;
+			const targetLine = Math.min(lineNumber, doc.lines);
+			const pos = doc.line(targetLine).from;
+			this.#view.dispatch({
+				selection: { anchor: pos },
+				effects: EditorView.scrollIntoView(pos, { y: "center" }),
+			});
 		});
 	}
 
@@ -147,6 +167,7 @@ class CEditor extends HTMLElement {
 		if (lineNumber < 1 || lineNumber > doc.lines) return;
 		const line = doc.line(lineNumber);
 		this.#view.dispatch({
+			selection: { anchor: line.from },
 			effects: EditorView.scrollIntoView(line.from, { y: "center" }),
 		});
 		this.#view.focus();

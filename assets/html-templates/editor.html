@@ -901,6 +901,8 @@
                     const id = group.dataset.id;
                     editor.value = grimSetNodeSize(editor.value, id, Math.round(newX), Math.round(newY), Math.round(newW), Math.round(newH));
                     render();
+                    const resizeLine = parseInt(group.dataset.line);
+                    if (resizeLine) editorWrapper.scrollToLine(resizeLine);
                     return;
                 }
 
@@ -928,6 +930,7 @@
 
                     editor.value = grimSetEdgeAnchors(editor.value, line, newFrom, newTo);
                     render();
+                    editorWrapper.scrollToLine(line);
                     return;
                 }
 
@@ -944,6 +947,7 @@
                         wps[idx] = { x: newX, y: newY };
                         editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
                         render();
+                        editorWrapper.scrollToLine(line);
                     }
                     return;
                 }
@@ -998,6 +1002,8 @@
 
                 editor.value = grimSetLayout(editor.value, id, newX, newY);
                 render();
+                const dragLine = parseInt(group.dataset.line);
+                if (dragLine) editorWrapper.scrollToLine(dragLine);
             });
 
             // 노드 위 커서 스타일
@@ -1030,6 +1036,7 @@
                     wps.splice(idx, 1);
                     editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
                     render();
+                    editorWrapper.scrollToLine(line);
                     return;
                 }
 
@@ -1046,6 +1053,7 @@
                 wps.splice(insertIdx, 0, { x: Math.round(localPt.x), y: Math.round(localPt.y) });
                 editor.value = grimSetEdgeWaypoints(editor.value, line, wps);
                 render();
+                editorWrapper.scrollToLine(line);
             });
 
 

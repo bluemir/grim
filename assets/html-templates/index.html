@@ -168,11 +168,7 @@ server.api -> server.worker: "Enqueue"
 				await new Promise(r => setTimeout(r, 50));
 			}
 
-			const GRID_SIZE = 16;
 
-			function snap(value) {
-				return Math.round(value / GRID_SIZE) * GRID_SIZE;
-			}
 
 			function getSVGPoint(svg, clientX, clientY) {
 				const rect = svg.getBoundingClientRect();
@@ -229,11 +225,11 @@ server.api -> server.worker: "Enqueue"
 			window.addEventListener("mousemove", (e) => {
 				if (!dragState) return;
 				const pt = getSVGPoint(dragState.svg, e.clientX, e.clientY);
-				const snapDx = snap(dragState.origX + (pt.x - dragState.startSVG.x)) - dragState.origX;
-				const snapDy = snap(dragState.origY + (pt.y - dragState.startSVG.y)) - dragState.origY;
+				const dx = pt.x - dragState.startSVG.x;
+				const dy = pt.y - dragState.startSVG.y;
 				const localX = parseFloat(dragState.group.dataset.localX || "0");
 				const localY = parseFloat(dragState.group.dataset.localY || "0");
-				dragState.group.setAttribute("transform", `translate(${localX + snapDx}, ${localY + snapDy})`);
+				dragState.group.setAttribute("transform", `translate(${localX + dx}, ${localY + dy})`);
 			});
 
 			window.addEventListener("mouseup", (e) => {
@@ -246,13 +242,13 @@ server.api -> server.worker: "Enqueue"
 				if (pixelDist < 5) return;
 
 				const pt = getSVGPoint(svg, e.clientX, e.clientY);
-				const rawX = snap(origX + pt.x - startSVG.x);
-				const rawY = snap(origY + pt.y - startSVG.y);
+				const rawX = Math.round(origX + pt.x - startSVG.x);
+				const rawY = Math.round(origY + pt.y - startSVG.y);
 				const LABEL_HEIGHT = 24;
 				let newX, newY;
 				if (parentX !== null) {
-					newX = snap(rawX - parentX);
-					newY = snap(rawY - parentY - LABEL_HEIGHT);
+					newX = Math.round(rawX - parentX);
+					newY = Math.round(rawY - parentY - LABEL_HEIGHT);
 				} else {
 					newX = rawX;
 					newY = rawY;

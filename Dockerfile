@@ -1,15 +1,15 @@
 ARG VERSION=dev
-FROM fedora:40 as build-env
+FROM fedora:43 AS build-env
 
 RUN echo "fastestmirror=1" >> /etc/dnf/dnf.conf
 RUN dnf install -y \
     make findutils which \
     golang nodejs \
-    protobuf protobuf-compiler protobuf-devel \
     && dnf clean all
 
 ENV GOPATH=/root/go
 ENV PATH=$PATH:/root/go/bin
+ENV GOTOOLCHAIN=go1.26.0+auto
 
 # pre build
 WORKDIR /src
@@ -20,8 +20,7 @@ COPY scripts/ scripts/
 ## install build tools
 RUN make build-tools 2>/dev/null
 
-## download dependancy
-
+## download dependency
 COPY go.mod go.sum package.json package-lock.json ./
 
 ### go
@@ -30,26 +29,18 @@ RUN go mod download
 RUN npm install
 
 # build
-# WORKDIR /src
-
-## for use vendor folder. uncomment next line
-#ENV OPTIONAL_BUILD_ARGS="-mod=vendor"
-ENV OPTIONAL_WEB_BUILD_ARGS="--minify"
-ENV OPTIONAL_BUILD_ARGS="--tags embed"
-
 ARG VERSION
 
 ## copy source
 COPY . /src
 
-RUN make build/grim
+RUN make prod
 
 ################################################################################
 # running image
-FROM fedora:40
+FROM fedora:43
 
 WORKDIR /
-COPY --from=build-env /src/build/grim /bin/
+COPY --from=build-env /src/build/grim-* /bin/grim
 
 CMD grim
-

@@ -28,4 +28,9 @@ tools: runtime/tools/docker
 runtime/tools/docker:
 	@which $(notdir $@) || (echo "see https://docs.docker.com/engine/install/")
 
+export BUILDAH_FORMAT=docker
+tools: runtime/tools/podman
+runtime/tools/podman:
+	@which $(notdir $@) || (echo "https://podman.io/docs/installation")
+
 .PHONY: docker docker-push docker-run

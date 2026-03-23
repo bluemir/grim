@@ -60,6 +60,7 @@ type LayoutNode struct {
 	X, Y       float64
 	W, H       float64
 	Fixed      bool
+	FixedW     bool // true if w was explicitly set in @layout
 	Shape      string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
 	Stack      int    // number of stacked shadow copies (0 or 1 = no shadow)
 	Style      NodeStyle
@@ -220,6 +221,7 @@ func buildNode(decl *parser.NodeDecl, parentPrefix string) *LayoutNode {
 				node.Y = floatVal(m.Values, "y", 0)
 				if w, ok := m.Values["w"]; ok {
 					node.W = toFloat(w)
+					node.FixedW = true
 				}
 				if h, ok := m.Values["h"]; ok {
 					node.H = toFloat(h)
@@ -527,7 +529,9 @@ func layoutChildren(parent *LayoutNode) {
 		}
 	}
 	textW := float64(maxLen)*charWidth + nodePadX
-	parent.W = math.Max(defaultNodeW, textW)
+	if !parent.FixedW {
+		parent.W = math.Max(defaultNodeW, textW)
+	}
 	parent.H = labelHeight + nestedPadding // minimum: label area + bottom padding
 
 	for _, child := range parent.Children {

@@ -25,7 +25,7 @@ import (
 func Initialize(ctx context.Context, dbpath string) (*gorm.DB, error) {
 	db, err := gorm.Open(sqlite.Open(dbpath), &gorm.Config{})
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, errors.Wrapf(err, "unable to open database file: %s", dbpath)
 	}
 
 	sqlDB, err := db.DB()

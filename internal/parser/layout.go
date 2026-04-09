@@ -97,6 +97,12 @@ func updateLayoutMeta(node *NodeDecl, x, y int64) {
 	if node.Block == nil {
 		node.Block = &Block{}
 	}
+	// Inline label (: "text") is invalid alongside a block — promote to @text metadata.
+	if node.Label != nil {
+		tm := &TextMeta{Format: node.Label.Format, Value: node.Label.Value}
+		node.Block.Metadata = append([]Metadata{tm}, node.Block.Metadata...)
+		node.Label = nil
+	}
 	for _, m := range node.Block.Metadata {
 		if lm, ok := m.(*LayoutMeta); ok {
 			lm.Values["x"] = x
@@ -127,6 +133,12 @@ func SetNodeSize(doc *Document, nodeID string, x, y, w, h int64) {
 func updateSizeMeta(node *NodeDecl, x, y, w, h int64) {
 	if node.Block == nil {
 		node.Block = &Block{}
+	}
+	// Inline label (: "text") is invalid alongside a block — promote to @text metadata.
+	if node.Label != nil {
+		tm := &TextMeta{Format: node.Label.Format, Value: node.Label.Value}
+		node.Block.Metadata = append([]Metadata{tm}, node.Block.Metadata...)
+		node.Label = nil
 	}
 	for _, m := range node.Block.Metadata {
 		if lm, ok := m.(*LayoutMeta); ok {

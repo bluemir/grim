@@ -157,6 +157,35 @@ func TestSetEdgeWaypoints_InlineLabel(t *testing.T) {
 	}
 }
 
+func TestSetLayout_NodeWithInlineLabel(t *testing.T) {
+	// Node with inline label must have label promoted to @text when block is created.
+	src := `std-sources: "cadvisor / node-exporter / kube-state-metrics"` + "\n"
+	doc, err := Parse(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	SetLayout(doc, "std-sources", 80, 256)
+	result := Format(doc)
+	// Inline label must be gone
+	if strings.Contains(result, `std-sources: "`) {
+		t.Errorf("inline label must be promoted to @text, got:\n%s", result)
+	}
+	// @text must be present
+	if !strings.Contains(result, `@text "cadvisor / node-exporter / kube-state-metrics"`) {
+		t.Errorf("expected @text directive with label, got:\n%s", result)
+	}
+	// @layout must be present
+	if !strings.Contains(result, "@layout") {
+		t.Errorf("expected @layout in output, got:\n%s", result)
+	}
+	if !strings.Contains(result, "x: 80") {
+		t.Errorf("expected x: 80 in output, got:\n%s", result)
+	}
+	if !strings.Contains(result, "y: 256") {
+		t.Errorf("expected y: 256 in output, got:\n%s", result)
+	}
+}
+
 func TestSetLayout_FlatDotted(t *testing.T) {
 	// flat dotted declaration: parent.child { }
 	src := "parent.child {\n}\n"

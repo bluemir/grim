@@ -5,7 +5,7 @@ IMPORT_PATH=$(shell cat go.mod | head -n 1 | awk '{print $$2}')
 APP_NAME=$(notdir $(IMPORT_PATH))
 
 export GO111MODULE=on
-export GOTOOLCHAIN=go1.26.0+auto
+export GOTOOLCHAIN=go1.26.3+auto
 export GOPRIVATE=
 export PATH:=./runtime/tools:$(PATH)
 
@@ -39,7 +39,7 @@ tools: build-tools ## Install tools(include build tools)
 .PHONY: help
 help: ## Display this help
 	# requirement
-	#  - golang: 1.18.x
+	#  - golang: 1.26.x
 	#  - node  : 14.16.x
 	#  - make  : 4.3 (*CAUTION* osx has lower verion of make)
 	#

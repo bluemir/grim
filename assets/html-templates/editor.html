@@ -206,29 +206,58 @@
             );
             go.run(result.instance);
 
+            // --- URL data pack/unpack (deflate-raw + base64url) ---
+            async function packData(str) {
+                const cs = new CompressionStream("deflate-raw");
+                const writer = cs.writable.getWriter();
+                writer.write(new TextEncoder().encode(str));
+                writer.close();
+                const buf = new Uint8Array(await new Response(cs.readable).arrayBuffer());
+                let bin = "";
+                for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+                return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+            }
+            async function unpackData(token) {
+                const b64 = token.replace(/-/g, "+").replace(/_/g, "/");
+                const bin = atob(b64);
+                const bytes = new Uint8Array(bin.length);
+                for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+                const ds = new DecompressionStream("deflate-raw");
+                const writer = ds.writable.getWriter();
+                writer.write(bytes);
+                writer.close();
+                return await new Response(ds.readable).text();
+            }
+            async function decodeSource(enc) {
+                if (enc.compressed) return await unpackData(enc.value);
+                return decodeURIComponent(escape(atob(enc.value))); // legacy uncompressed
+            }
+
             // --- Storage ID detection ---
             const storageEnabled = {{ (config .).StorageEnabled }};
             const pathMatch = window.location.pathname.match(/^\/edit\/([a-z0-9]+)$/);
             let storageId = pathMatch ? pathMatch[1] : null;
             let autoSaveTimer = null;
 
-            // Fragment에서 data 읽기 (하위 호환: query param fallback)
+            // Fragment에서 data 읽기 (#z= 압축 / #data= 레거시 / ?data= 레거시)
             function getDataFromFragment() {
                 const hash = window.location.hash.slice(1);
+                if (hash.startsWith("z=")) {
+                    return { value: hash.slice(2), compressed: true };
+                }
                 if (hash.startsWith("data=")) {
-                    return hash.slice(5);
+                    return { value: hash.slice(5), compressed: false };
                 }
                 const params = new URLSearchParams(window.location.search);
                 const legacyData = params.get("data");
                 if (legacyData) {
-                    history.replaceState(null, "", window.location.pathname + "#data=" + legacyData);
-                    return legacyData;
+                    return { value: legacyData, compressed: false };
                 }
                 return null;
             }
 
-            function setDataToFragment(base64) {
-                history.replaceState(null, "", window.location.pathname + "#data=" + base64);
+            function setEncodedFragment(token) {
+                history.replaceState(null, "", window.location.pathname + "#z=" + token);
             }
 
             // URL에서 데이터 복원 또는 Storage에서 로드
@@ -245,10 +274,10 @@
                     console.warn("Failed to load diagram from storage:", e);
                 }
             } else {
-                const data = getDataFromFragment();
-                if (data) {
+                const enc = getDataFromFragment();
+                if (enc) {
                     try {
-                        editor.value = decodeURIComponent(escape(atob(data)));
+                        editor.value = await decodeSource(enc);
                     } catch (e) {
                         console.warn("Failed to decode data from URL:", e);
                     }
@@ -300,13 +329,13 @@
                 }
             }
 
-            function updateURL() {
+            async function updateURL() {
                 if (storageId) {
                     scheduleAutoSave();
                     return;
                 }
                 if (editor.value) {
-                    setDataToFragment(btoa(unescape(encodeURIComponent(editor.value))));
+                    setEncodedFragment(await packData(editor.value));
                 } else {
                     history.replaceState(null, "", window.location.pathname);
                 }
@@ -542,9 +571,8 @@
                     return;
                 }
                 const url = new URL("/view", window.location.origin);
-                const dataParam = getDataFromFragment();
-                if (dataParam) {
-                    url.hash = "data=" + dataParam;
+                if (window.location.hash) {
+                    url.hash = window.location.hash.slice(1);
                 }
                 window.location.href = url.toString();
             });

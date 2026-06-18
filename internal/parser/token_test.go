@@ -238,6 +238,17 @@ func TestLexDefault_IdentStart_Underscore(t *testing.T) {
 	)
 }
 
+func TestLexDefault_IdentStart_UnicodeLetter(t *testing.T) {
+	tokens, err := Tokenize("사용자")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectTokens(t, tokens,
+		Token{Type: TokenIdent, Value: "사용자"},
+		Token{Type: TokenEOF},
+	)
+}
+
 func TestLexDefault_NumberStart(t *testing.T) {
 	tokens, err := Tokenize("7")
 	if err != nil {
@@ -359,6 +370,17 @@ func TestLexIdent_MixedChars(t *testing.T) {
 	}
 	expectTokens(t, tokens,
 		Token{Type: TokenIdent, Value: "my-node_v2"},
+		Token{Type: TokenEOF},
+	)
+}
+
+func TestLexIdent_UnicodeMixedChars(t *testing.T) {
+	tokens, err := Tokenize("서비스-api_2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expectTokens(t, tokens,
+		Token{Type: TokenIdent, Value: "서비스-api_2"},
 		Token{Type: TokenEOF},
 	)
 }

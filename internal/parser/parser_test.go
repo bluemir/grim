@@ -123,6 +123,17 @@ func TestParse_Path_Dotted(t *testing.T) {
 	}
 }
 
+func TestParse_Path_Unicode(t *testing.T) {
+	doc, err := Parse("서비스.api")
+	if err != nil {
+		t.Fatal(err)
+	}
+	node := doc.Statements[0].(*NodeDecl)
+	if len(node.Path) != 2 || node.Path[0] != "서비스" || node.Path[1] != "api" {
+		t.Errorf("expected [서비스 api], got %v", node.Path)
+	}
+}
+
 func TestParse_Path_DotWithoutIdent(t *testing.T) {
 	// `a.` without following ident should produce an error
 	_, err := Parse("a.")

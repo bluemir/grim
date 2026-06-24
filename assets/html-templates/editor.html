@@ -68,6 +68,91 @@
                 background: var(--gray-300, #ddd);
             }
 
+            .editor-toolbar {
+                position: relative;
+            }
+
+            #hint-popover {
+                position: absolute;
+                top: calc(100% + 0.25rem);
+                left: 0.5rem;
+                z-index: 50;
+                width: min(420px, calc(100vw - 2rem));
+                max-height: 70vh;
+                overflow: auto;
+                background: var(--gray-100, #fff);
+                border: 1px solid var(--gray-400, #aaa);
+                border-radius: 6px;
+                box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+                font-size: 0.8rem;
+                cursor: auto;
+            }
+
+            #hint-popover[hidden] {
+                display: none;
+            }
+
+            #hint-popover .hint-header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.4rem 0.6rem;
+                font-weight: 600;
+                border-bottom: 1px solid var(--gray-300, #ddd);
+                position: sticky;
+                top: 0;
+                background: var(--gray-100, #fff);
+            }
+
+            #hint-popover .hint-header a {
+                font-weight: 400;
+                font-size: 0.75rem;
+                color: #2a6fb0;
+                text-decoration: none;
+            }
+
+            #hint-popover .hint-header a:hover {
+                text-decoration: underline;
+            }
+
+            #hint-popover .hint-body {
+                padding: 0.3rem 0.6rem 0.6rem;
+            }
+
+            #hint-popover section {
+                margin-top: 0.5rem;
+            }
+
+            #hint-popover h4 {
+                margin: 0 0 0.2rem;
+                font-size: 0.78rem;
+                color: var(--gray-700, #555);
+            }
+
+            #hint-popover p {
+                margin: 0.2rem 0 0;
+                color: var(--gray-700, #555);
+            }
+
+            #hint-popover pre {
+                margin: 0;
+                padding: 0.4rem 0.5rem;
+                background: var(--gray-200, #f0f0f0);
+                border-radius: 4px;
+                font-family: monospace;
+                font-size: 0.75rem;
+                line-height: 1.4;
+                white-space: pre-wrap;
+                overflow-x: auto;
+            }
+
+            #hint-popover code {
+                font-family: monospace;
+                background: var(--gray-200, #f0f0f0);
+                padding: 0 0.2em;
+                border-radius: 3px;
+            }
+
             #error-panel {
                 flex-shrink: 0;
                 max-height: 30%;
@@ -198,6 +283,48 @@
                 <div col="6">
                     <div class="editor-toolbar">
                         <button id="format-btn" title="Format code (Shift+Alt+F)">Format</button>
+                        <button id="hint-btn" title="Syntax cheat sheet" aria-expanded="false">Hint</button>
+                        <div id="hint-popover" hidden>
+                            <div class="hint-header">
+                                <span>문법 요약</span>
+                                <a href="/guide" target="_blank" rel="noopener">전체 가이드 ↗</a>
+                            </div>
+                            <div class="hint-body">
+                                <section>
+                                    <h4>노드</h4>
+                                    <pre>my-node              # 선언
+my-node: "라벨"      # 라벨</pre>
+                                    <p>ID는 문자·<code>_</code>로 시작, 이후 <code>- _</code> 숫자 허용 (점 불가)</p>
+                                </section>
+                                <section>
+                                    <h4>엣지</h4>
+                                    <pre>A -&gt; B    A &lt;- B    A &lt;-&gt; B    A -- B
+client -&gt; server: "HTTP 요청"</pre>
+                                </section>
+                                <section>
+                                    <h4>중첩 · 경로 참조</h4>
+                                    <pre>network {
+    frontend -&gt; backend
+}
+external -&gt; network.frontend</pre>
+                                </section>
+                                <section>
+                                    <h4>주석</h4>
+                                    <pre># 줄 주석
+A -&gt; B  # 인라인 주석</pre>
+                                </section>
+                                <section>
+                                    <h4>지시자 (블록 내부)</h4>
+                                    <pre>node {
+    @shape diamond     # rectangle, rounded, circle...
+    @layout {x: 100, y: 80, w: 200, h: 60}
+    @style {fill: blue-500, stroke: black}
+    @text[markdown] {| **굵게** |}
+    @icon {kind: user}
+}</pre>
+                                </section>
+                            </div>
+                        </div>
                     </div>
                     <c-editor id="code-editor-wrapper"></c-editor>
                     <div id="error-panel" hidden></div>
@@ -410,6 +537,37 @@
             }
 
             document.getElementById("format-btn").addEventListener("click", format);
+
+            // --- Hint popover (syntax cheat sheet) ---
+
+            const hintBtn = document.getElementById("hint-btn");
+            const hintPopover = document.getElementById("hint-popover");
+
+            function setHintOpen(open) {
+                hintPopover.hidden = !open;
+                hintBtn.setAttribute("aria-expanded", String(open));
+            }
+
+            hintBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                setHintOpen(hintPopover.hidden);
+            });
+
+            // Close on outside click
+            document.addEventListener("click", (e) => {
+                if (hintPopover.hidden) return;
+                if (!hintPopover.contains(e.target) && e.target !== hintBtn) {
+                    setHintOpen(false);
+                }
+            });
+
+            // Close on Escape
+            window.addEventListener("keydown", (e) => {
+                if (e.code === "Escape" && !hintPopover.hidden) {
+                    setHintOpen(false);
+                    hintBtn.focus();
+                }
+            });
 
             // Shift+Alt+F (VS Code standard format shortcut)
             window.addEventListener("keydown", (e) => {

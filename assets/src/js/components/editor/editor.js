@@ -2,6 +2,7 @@ import {
 	basicSetup, EditorView, EditorState, keymap,
 	indentWithTab, indentUnit,
 	StateField, StateEffect, Decoration,
+	lintGutter, setDiagnostics,
 } from "codemirror";
 
 // --- highlight line decoration ---
@@ -102,6 +103,7 @@ class CEditor extends HTMLElement {
 						},
 					]),
 					highlightField,
+					lintGutter(),
 					EditorView.updateListener.of((update) => {
 						if (update.docChanged) {
 							self.dispatchEvent(new Event("input", { bubbles: true }));
@@ -171,6 +173,27 @@ class CEditor extends HTMLElement {
 			effects: EditorView.scrollIntoView(line.from, { y: "center" }),
 		});
 		this.#view.focus();
+	}
+
+	// Show parse diagnostics as gutter markers + inline underlines.
+	// diags: array of { line, col, message } (1-based line/col).
+	// Pass an empty array to clear all diagnostics.
+	setDiagnostics(diags) {
+		if (!this.#view) return;
+		const doc = this.#view.state.doc;
+		const cmDiags = (diags || []).map(d => {
+			const lineNo = Math.min(Math.max(d.line || 1, 1), doc.lines);
+			const line = doc.line(lineNo);
+			let from = line.from + Math.max(0, (d.col || 1) - 1);
+			let to = line.to;
+			// Positionless (col 0) or end-of-line errors: underline the whole line.
+			if (from >= to) {
+				from = line.from;
+				to = line.to;
+			}
+			return { from, to, severity: "error", message: d.message };
+		});
+		this.#view.dispatch(setDiagnostics(this.#view.state, cmDiags));
 	}
 
 	#applyHighlight() {

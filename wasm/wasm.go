@@ -31,6 +31,7 @@ func main() {
 	quit := make(chan struct{}, 0)
 
 	js.Global().Set("grimRender", js.FuncOf(renderGrim))
+	js.Global().Set("grimLint", js.FuncOf(lintGrim))
 	js.Global().Set("grimFormat", js.FuncOf(formatGrim))
 	js.Global().Set("grimSetLayout", js.FuncOf(setLayoutGrim))
 	js.Global().Set("grimSetEdgeWaypoints", js.FuncOf(setEdgeWaypointsGrim))
@@ -46,6 +47,24 @@ func main() {
 
 	// JS에서 shutdownGrim()을 호출하면 대기가 풀리고 프로그램이 정상 종료됨
 	logrus.Info("Grim WASM 엔진이 종료되었습니다.")
+}
+
+// lintGrim parses the source and returns parse errors as a JS array of
+// {line, col, message} objects so the editor can surface error positions.
+// An empty array means the source parsed without errors.
+func lintGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	_, err := parser.Parse(code)
+	diags := parser.Diagnostics(err)
+	out := make([]any, len(diags))
+	for i, d := range diags {
+		out[i] = map[string]any{
+			"line":    d.Line,
+			"col":     d.Col,
+			"message": d.Message,
+		}
+	}
+	return js.ValueOf(out)
 }
 
 func formatGrim(this js.Value, args []js.Value) any {

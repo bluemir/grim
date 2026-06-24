@@ -60,7 +60,7 @@ type LayoutNode struct {
 	X, Y       float64
 	W, H       float64
 	Fixed      bool
-	FixedW     bool // true if w was explicitly set in @layout
+	FixedW     bool   // true if w was explicitly set in @layout
 	Shape      string // "rectangle", "rounded", "circle", "diamond", "cylinder", "cloud", "hexagon", "parallelogram"
 	Stack      int    // number of stacked shadow copies (0 or 1 = no shadow)
 	Style      NodeStyle

@@ -68,6 +68,37 @@
                 background: var(--gray-300, #ddd);
             }
 
+            #error-panel {
+                flex-shrink: 0;
+                max-height: 30%;
+                overflow: auto;
+                background: var(--gray-100, #f9f9f9);
+                border-top: 1px solid var(--gray-300, #ccc);
+                font-family: monospace;
+                font-size: 0.8rem;
+            }
+
+            #error-panel[hidden] {
+                display: none;
+            }
+
+            #error-panel .error-item {
+                padding: 0.2rem 0.5rem;
+                cursor: pointer;
+                color: #c0392b;
+                border-bottom: 1px solid var(--gray-200, #eee);
+                white-space: pre-wrap;
+            }
+
+            #error-panel .error-item:hover {
+                background: var(--gray-200, #eee);
+            }
+
+            #error-panel .error-loc {
+                color: var(--gray-600, #888);
+                margin-right: 0.5rem;
+            }
+
             #svg-preview {
                 position: relative;
                 overflow: auto;
@@ -169,6 +200,7 @@
                         <button id="format-btn" title="Format code (Shift+Alt+F)">Format</button>
                     </div>
                     <c-editor id="code-editor-wrapper"></c-editor>
+                    <div id="error-panel" hidden></div>
                 </div>
                 <div col="6" id="svg-preview" tabindex="0">
                     <div class="zoom-controls">
@@ -197,6 +229,7 @@
             const editorWrapper = editor;
             const preview = document.getElementById("svg-preview");
             const svgContainer = document.getElementById("svg-container");
+            const errorPanel = document.getElementById("error-panel");
 
             // WASM 로드
             const go = new Go();
@@ -301,11 +334,34 @@
                 }, 1000);
             }
 
+            // 파싱 에러를 에디터(gutter/밑줄)와 하단 패널에 표시
+            function showDiagnostics(diags) {
+                editorWrapper.setDiagnostics(diags);
+                errorPanel.innerHTML = "";
+                if (!diags || diags.length === 0) {
+                    errorPanel.hidden = true;
+                    return;
+                }
+                errorPanel.hidden = false;
+                for (const d of diags) {
+                    const item = document.createElement("div");
+                    item.className = "error-item";
+                    const loc = document.createElement("span");
+                    loc.className = "error-loc";
+                    loc.textContent = `line ${d.line}:${d.col}`;
+                    item.appendChild(loc);
+                    item.appendChild(document.createTextNode(d.message));
+                    item.addEventListener("click", () => editorWrapper.scrollToLine(d.line));
+                    errorPanel.appendChild(item);
+                }
+            }
+
             // textarea 입력 → WASM 렌더링 → SVG 표시
             let debounceTimer;
             function render() {
                 const svg = grimRender(editor.value);
                 svgContainer.innerHTML = svg;
+                showDiagnostics(grimLint(editor.value));
                 applyZoom();
                 attachEdgeHandles();
                 updateURL();

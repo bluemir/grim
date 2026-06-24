@@ -51,7 +51,8 @@
 	- local render 안내
 	- build 방법 안내
 - [x] text align 스타일 추가
-- [ ] parse 에러 나면 에러난 위치 알려주기
+- [x] parse 에러 나면 에러난 위치 알려주기
+	- 에디터 gutter 마커 + 밑줄, 하단 에러 패널(클릭 시 해당 줄로 이동)
 - [ ] editor 에서 코드와 그림의 비율을 조절할수 있는 기능
 - [x] editor 에서 코드창을 잠깐 접어둘수 있는 기능
 - [ ] post 로 source 를 보내면 랜더해서 svg 로 내려주는 기능

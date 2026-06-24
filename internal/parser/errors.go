@@ -43,3 +43,19 @@ func (e *MultiParseError) Add(line, col int, msg string) {
 func (e *MultiParseError) HasErrors() bool {
 	return len(e.Errors) > 0
 }
+
+// Diagnostics flattens a parse error returned by Parse into a slice of
+// ParseErrors carrying line/col positions. It returns nil for a nil error.
+// Unknown error types are reported as a single positionless diagnostic.
+func Diagnostics(err error) []*ParseError {
+	switch e := err.(type) {
+	case nil:
+		return nil
+	case *MultiParseError:
+		return e.Errors
+	case *ParseError:
+		return []*ParseError{e}
+	default:
+		return []*ParseError{{Line: 0, Col: 0, Message: err.Error()}}
+	}
+}

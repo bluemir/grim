@@ -5,6 +5,7 @@ import (
 
 	"github.com/bluemir/grim/internal/pubsub"
 	"github.com/bluemir/grim/internal/server/backend/auth"
+	"github.com/bluemir/grim/internal/server/backend/mail"
 	"github.com/bluemir/grim/internal/server/backend/posts"
 	"github.com/bluemir/grim/internal/server/backend/storage"
 	"gorm.io/gorm"
@@ -17,6 +18,7 @@ type Config struct {
 	}
 	Posts   posts.Config
 	Storage storage.Config
+	Mail    mail.Config
 }
 
 func DefaultConfig() Config {
@@ -45,7 +47,11 @@ func Initialize(ctx context.Context, conf *Config, db *gorm.DB) (*Backends, erro
 	if err != nil {
 		return nil, err
 	}
-	storageManager, err := storage.New(ctx, &conf.Storage, db)
+	mailer, err := mail.New(&conf.Mail)
+	if err != nil {
+		return nil, err
+	}
+	storageManager, err := storage.New(ctx, &conf.Storage, db, mailer)
 	if err != nil {
 		return nil, err
 	}

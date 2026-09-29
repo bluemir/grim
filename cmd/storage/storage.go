@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/bluemir/grim/internal/server"
+	"github.com/bluemir/grim/internal/server/backend/mail"
 	"github.com/bluemir/grim/internal/server/backend/storage"
 	"github.com/bluemir/grim/internal/server/store"
 	"github.com/bluemir/grim/internal/util"
@@ -45,7 +46,8 @@ func Register(cmd *kingpin.CmdClause) {
 		if err != nil {
 			return nil, err
 		}
-		return storage.New(context.Background(), &conf, db)
+		mailer, _ := mail.New(&mail.Config{}) // admin commands never send mail
+		return storage.New(context.Background(), &conf, db, mailer)
 	}
 
 	// notFound replaces gorm's stack-traced error with a one-line message.
@@ -73,9 +75,12 @@ func Register(cmd *kingpin.CmdClause) {
 			if at, ok := m.ExpiresAt(d); ok {
 				expires = at.Format(time.DateTime)
 			}
-			if d.Pinned {
+			switch {
+			case d.Pinned:
 				expires += " (pinned)"
-			} else if d.KeepUntil != nil {
+			case d.VerifiedUntil != nil:
+				expires += " (verified)"
+			case d.KeepUntil != nil:
 				expires += " (extended)"
 			}
 			fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", d.Id,

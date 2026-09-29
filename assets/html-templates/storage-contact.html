@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>grim - 다이어그램 보관</title>
+		{{ template "snippet/header.html" . }}
+		<style>
+			header {
+				background-color: var(--gray-300);
+			}
+			#contact-action {
+				max-width: 40rem;
+				margin: 2rem auto;
+				line-height: 1.6;
+			}
+			#contact-action button {
+				cursor: pointer;
+				padding: 0.4rem 1rem;
+				font-size: 1rem;
+			}
+			#contact-action [data-kind="error"] {
+				color: var(--red-700, #b00020);
+			}
+		</style>
+	</head>
+	<body layout="one-page">
+		<header>
+			<section row>
+				<global-navigation-bar></global-navigation-bar>
+			</section>
+		</header>
+		<main>
+			<section row id="contact-action">
+				<h1 id="contact-title">다이어그램 보관</h1>
+				<p id="contact-message"></p>
+				<p><button id="contact-button" hidden></button></p>
+				<p id="contact-result" role="status"></p>
+				<p><a id="contact-diagram" hidden>다이어그램 보기</a></p>
+			</section>
+		</main>
+		<script type="module">
+			// Links in mails land here with the token in the fragment, so it
+			// never reaches server logs. Nothing happens until the button is
+			// pressed, so mail scanners that prefetch links can't trigger it.
+			const params = new URLSearchParams(window.location.hash.slice(1));
+			const action = params.get("action");
+			const token = params.get("token");
+
+			const title = document.getElementById("contact-title");
+			const message = document.getElementById("contact-message");
+			const button = document.getElementById("contact-button");
+			const result = document.getElementById("contact-result");
+			const diagramLink = document.getElementById("contact-diagram");
+
+			const actions = {
+				confirm: {
+					title: "다이어그램 보관 연장",
+					message: "아래 버튼을 누르면 메일 주소가 인증되고, 다이어그램의 보관 기간이 연장됩니다.",
+					button: "인증하고 보관 기간 연장",
+					done: (res) => `완료되었습니다. ${new Date(res.verifiedUntil).toLocaleDateString()}까지 보관됩니다.`,
+				},
+				remove: {
+					title: "내 메일 삭제",
+					message: "아래 버튼을 누르면 이 다이어그램에서 내 메일 주소가 삭제되고, 더 이상 안내 메일을 받지 않습니다. 이미 연장된 보관 기간은 유지됩니다.",
+					button: "내 메일 삭제",
+					done: () => "삭제되었습니다.",
+				},
+			};
+
+			const a = actions[action];
+			if (!a || !token) {
+				message.textContent = "잘못된 링크입니다. 메일에 있는 링크를 그대로 열어 주세요.";
+				message.dataset.kind = "error";
+			} else {
+				title.textContent = a.title;
+				message.textContent = a.message;
+				button.textContent = a.button;
+				button.hidden = false;
+				button.addEventListener("click", async () => {
+					button.disabled = true;
+					try {
+						const resp = await fetch(`/api/v1/storage-contacts/${action}`, {
+							method: "POST",
+							headers: { "Content-Type": "application/json", "Accept": "application/json" },
+							body: JSON.stringify({ token }),
+						});
+						if (resp.status === 410) {
+							throw new Error("링크가 만료되었거나 이미 처리되었습니다. 인증 링크는 발송 후 정해진 시간 동안만 유효합니다. 필요하면 다이어그램 화면에서 다시 등록해 주세요.");
+						}
+						if (!resp.ok) throw new Error(`처리하지 못했습니다. (${resp.status})`);
+						const res = await resp.json();
+						result.textContent = a.done(res);
+						result.dataset.kind = "info";
+						button.hidden = true;
+						diagramLink.href = `/view/${res.diagramId}`;
+						diagramLink.hidden = false;
+					} catch (e) {
+						result.textContent = e.message;
+						result.dataset.kind = "error";
+						button.disabled = false;
+					}
+				});
+			}
+		</script>
+	</body>
+</html>

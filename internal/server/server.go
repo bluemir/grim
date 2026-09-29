@@ -38,6 +38,9 @@ type Config struct {
 }
 
 type HTTPConfig struct {
+	// BaseURL is the public URL of this server (e.g. https://grim.example.com),
+	// used for links in mails.
+	BaseURL string `yaml:"baseURL"`
 	// TrustedProxies lists proxy IPs/CIDRs whose forwarding headers are
 	// believed when resolving the client IP. Empty means trust none and use
 	// the connection's remote address.
@@ -71,6 +74,7 @@ func Run(ctx context.Context, args *Args) error {
 
 	// pass cmd to config
 	conf.Backend.Auth.Salt = args.Salt
+	conf.Backend.Storage.BaseURL = conf.HTTP.BaseURL
 
 	db, err := store.Initialize(ctx, args.DBPath)
 	if err != nil {

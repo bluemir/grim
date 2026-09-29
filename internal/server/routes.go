@@ -34,6 +34,9 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 
 		v1.POST("/storage", api(handler.CreateDiagram))
 		v1.GET("/storage/:id", api(handler.GetDiagram))
+		v1.POST("/storage/:id/contacts", api(handler.AddDiagramContact))
+		v1.POST("/storage-contacts/confirm", api(handler.ConfirmDiagramContact))
+		v1.POST("/storage-contacts/remove", api(handler.RemoveDiagramContact))
 
 		// WebSocket
 		//v1.GET("/ws", handler.Websocket)
@@ -58,6 +61,7 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 		app.GET("/edit/:id", html("editor.html"))
 		app.GET("/view", html("viewer.html"))
 		app.GET("/view/:id", html("viewer.html"))
+		app.GET("/storage/contact", html("storage-contact.html"))
 		app.GET("/editor", redirect("/edit"))
 		app.GET("/guide", redirect("/guide/getting-started"))
 		app.GET("/guide/*slug", html("guide.html"))

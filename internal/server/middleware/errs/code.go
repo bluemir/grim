@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/bluemir/grim/internal/server/backend/auth"
+	"github.com/bluemir/grim/internal/server/backend/mail"
 	"github.com/bluemir/grim/internal/server/backend/meta"
 	"github.com/bluemir/grim/internal/server/backend/storage"
 	"github.com/go-playground/validator/v10"
@@ -34,8 +35,12 @@ func code(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, meta.ErrNotImplemented):
 		return http.StatusNotImplemented
-	case errors.Is(err, storage.ErrStorageDisabled):
+	case errors.Is(err, storage.ErrStorageDisabled), errors.Is(err, mail.ErrMailDisabled):
 		return http.StatusNotFound
+	case errors.Is(err, storage.ErrInvalidEmail):
+		return http.StatusBadRequest
+	case errors.Is(err, storage.ErrLinkExpired):
+		return http.StatusGone
 	case errors.Is(err, storage.ErrTooLarge):
 		return http.StatusRequestEntityTooLarge
 	case errors.Is(err, storage.ErrRateLimited):

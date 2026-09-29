@@ -6,11 +6,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 
+	"github.com/bluemir/grim/internal/server/backend/mail"
 	"github.com/bluemir/grim/internal/util"
 )
 
@@ -21,7 +23,28 @@ type testClock struct{ t time.Time }
 func (c *testClock) now() time.Time          { return c.t }
 func (c *testClock) advance(d time.Duration) { c.t = c.t.Add(d) }
 
+// fakeMailer records messages instead of sending them.
+type fakeMailer struct {
+	enabled bool
+	sent    []mail.Message
+	fail    map[string]bool // recipient -> fail sending
+}
+
+func (f *fakeMailer) Enabled() bool { return f.enabled }
+func (f *fakeMailer) Send(_ context.Context, msg mail.Message) error {
+	if f.fail[msg.To] {
+		return errors.New("smtp: mailbox unavailable")
+	}
+	f.sent = append(f.sent, msg)
+	return nil
+}
+
 func newTestManager(t *testing.T, mutate func(*Config)) (*Manager, *testClock) {
+	m, clock, _ := newTestManagerWithMail(t, false, mutate)
+	return m, clock
+}
+
+func newTestManagerWithMail(t *testing.T, mailEnabled bool, mutate func(*Config)) (*Manager, *testClock, *fakeMailer) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
@@ -32,15 +55,17 @@ func newTestManager(t *testing.T, mutate func(*Config)) (*Manager, *testClock) {
 	conf := DefaultConfig()
 	conf.Enabled = true
 	conf.RateLimit.Create = 0
+	conf.BaseURL = "https://grim.example.com"
 	if mutate != nil {
 		mutate(&conf)
 	}
-	m, err := New(context.Background(), &conf, db)
+	mailer := &fakeMailer{enabled: mailEnabled, fail: map[string]bool{}}
+	m, err := New(context.Background(), &conf, db, mailer)
 	require.NoError(t, err)
 
 	clock := &testClock{t: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)}
 	m.now = clock.now
-	return m, clock
+	return m, clock, mailer
 }
 
 func TestCreateIsContentAddressed(t *testing.T) {
@@ -147,7 +172,8 @@ func TestCleanupKeepsPinnedAndExtended(t *testing.T) {
 
 	d, err := m.Find(ctx, extended.Id)
 	require.NoError(t, err)
-	e := m.Expiry(d)
+	e, err := m.Expiry(ctx, d)
+	require.NoError(t, err)
 	require.NotNil(t, e.KeepUntil, "extension outlasts the idle window, so it is reported")
 	assert.Equal(t, 30, e.IdleDays)
 
@@ -195,3 +221,5 @@ func TestDisabled(t *testing.T) {
 	_, err = m.Get(ctx, "whatever")
 	assert.ErrorIs(t, err, ErrStorageDisabled)
 }
+
+func sqliteMemory() gorm.Dialector { return sqlite.Open(":memory:") }

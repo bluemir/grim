@@ -34,7 +34,8 @@ func (c *Controller) Run(ctx context.Context) error {
 	return eg.Wait()
 }
 
-// cleanupStorage deletes expired diagrams once at startup and then periodically.
+// cleanupStorage sends due confirmation mails and deletes expired diagrams,
+// once at startup and then periodically.
 func (c *Controller) cleanupStorage(ctx context.Context) func() error {
 	return func() error {
 		if !c.backends.Storage.Enabled() {
@@ -43,6 +44,9 @@ func (c *Controller) cleanupStorage(ctx context.Context) func() error {
 		ticker := time.NewTicker(storageCleanupInterval)
 		defer ticker.Stop()
 		for {
+			if err := c.backends.Storage.SendReminders(ctx); err != nil {
+				logrus.Warnf("storage reminders failed: %v", err)
+			}
 			n, err := c.backends.Storage.Cleanup(ctx)
 			if err != nil {
 				logrus.Warnf("storage cleanup failed: %v", err)

@@ -126,7 +126,12 @@ func New(ctx context.Context, conf *Config, db *gorm.DB, mailer mail.Sender) (*M
 	}
 	m := &Manager{db: db, conf: *conf, mailer: mailer, now: time.Now}
 	if conf.RateLimit.Create > 0 {
-		m.limiter = newRateLimiter(conf.RateLimit.Create, conf.RateLimit.Window.Std())
+		// m.now is read on each call so tests can swap the clock after New.
+		limiter, err := newRateLimiter(conf.RateLimit.Create, conf.RateLimit.Window.Std(), rateLimitMaxKeys, func() time.Time { return m.now() })
+		if err != nil {
+			return nil, err
+		}
+		m.limiter = limiter
 	}
 	if conf.Enabled {
 		if err := m.Migrate(ctx); err != nil {
@@ -194,8 +199,14 @@ func (m *Manager) Create(ctx context.Context, source string, clientIP string) (*
 		}
 
 		// Only new rows count against the limit; re-sharing stores nothing.
-		if m.limiter != nil && !m.limiter.Allow(clientIP, now) {
-			return nil, ErrRateLimited
+		if m.limiter != nil {
+			ok, err := m.limiter.Allow(ctx, clientIP)
+			if err != nil {
+				return nil, err
+			}
+			if !ok {
+				return nil, ErrRateLimited
+			}
 		}
 		diagram := &Diagram{Id: id, Source: source, CreatedAt: now, LastViewedAt: now}
 		if err := m.db.WithContext(ctx).Create(diagram).Error; err != nil {
@@ -277,9 +288,6 @@ func (m *Manager) ExpiresAt(d *Diagram) (at time.Time, ok bool) {
 // number of deleted diagrams.
 func (m *Manager) Cleanup(ctx context.Context) (int64, error) {
 	now := m.now()
-	if m.limiter != nil {
-		m.limiter.Prune(now)
-	}
 	if !m.conf.Enabled {
 		return 0, nil
 	}

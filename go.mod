@@ -22,6 +22,7 @@ require (
 	github.com/swaggo/files v1.0.1
 	github.com/swaggo/gin-swagger v1.6.1
 	github.com/swaggo/swag v1.16.6
+	github.com/throttled/throttled/v2 v2.15.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/net v0.59.0
 	golang.org/x/sync v0.23.0
@@ -32,6 +33,7 @@ require (
 
 require (
 	github.com/go-openapi/swag/pools v0.29.2 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
 

@@ -17,7 +17,8 @@ assets/src/js/index.js: $(JS_SOURCES) scripts/tools/import-helper/*
 	go run ./scripts/tools/import-helper --dir=assets/src/js --target=$@ --exclude=elements/grim-viewer.js
 
 ## dev build:
-build/$(APP_NAME): assets/src/js/index.js
+build/$(APP_NAME):            assets/src/js/index.js
+build/$(APP_NAME)-$(VERSION): assets/src/js/index.js
 
 ## prod build: esbuild runs via go:generate in assets/static_prod.go
 

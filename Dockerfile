@@ -1,5 +1,5 @@
 ARG VERSION=dev
-FROM fedora:43 AS build-env
+FROM fedora:44 AS build-env
 
 RUN echo "fastestmirror=1" >> /etc/dnf/dnf.conf
 RUN dnf install -y \
@@ -9,7 +9,7 @@ RUN dnf install -y \
 
 ENV GOPATH=/root/go
 ENV PATH=$PATH:/root/go/bin
-ENV GOTOOLCHAIN=go1.26.3+auto
+ENV GOTOOLCHAIN=go1.27.1+auto
 
 # pre build
 WORKDIR /src
@@ -38,7 +38,7 @@ RUN make prod
 
 ################################################################################
 # running image
-FROM fedora:43
+FROM fedora:44
 
 WORKDIR /
 COPY --from=build-env /src/build/grim-* /bin/grim

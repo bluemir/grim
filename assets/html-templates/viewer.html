@@ -81,6 +81,16 @@
                 margin: 0 1rem;
                 padding: 0;
             }
+
+            #storage-notice {
+                padding: 0.4rem 1rem;
+                font-size: 0.85rem;
+                background: var(--gray-100, #f5f5f5);
+                border-bottom: 1px solid var(--gray-300, #ccc);
+            }
+            #storage-notice[data-kind="error"] {
+                color: var(--red-700, #b00020);
+            }
         </style>
     </head>
     <body layout="one-page">
@@ -89,6 +99,7 @@
                 <global-navigation-bar></global-navigation-bar>
             </div>
         </header>
+        <div id="storage-notice" role="status" hidden></div>
         <main>
             <div id="svg-preview" tabindex="0">
                 <div class="zoom-controls">
@@ -136,7 +147,7 @@
             }
 
             // --- Storage ID detection ---
-            const pathMatch = window.location.pathname.match(/^\/view\/([a-z0-9]+)$/);
+            const pathMatch = window.location.pathname.match(/^\/view\/([A-Za-z0-9]+)$/);
             const storageId = pathMatch ? pathMatch[1] : null;
 
             // Fragment에서 data 읽기 (#z= 압축 / #data= 레거시 / ?data= 레거시)
@@ -156,6 +167,23 @@
                 return null;
             }
 
+            // 저장된 다이어그램의 만료 안내 (상단 배너)
+            const storageNotice = document.getElementById("storage-notice");
+            function showNotice(text, kind = "info") {
+                storageNotice.textContent = text;
+                storageNotice.dataset.kind = kind;
+                storageNotice.hidden = false;
+            }
+            function expiryText(expiry) {
+                if (!expiry || expiry.pinned || !expiry.idleDays) return null;
+                const idle = `${expiry.idleDays}일간 조회가 없다면 만료됩니다.`;
+                if (expiry.keepUntil) {
+                    const until = new Date(expiry.keepUntil).toLocaleDateString();
+                    return `${until}까지 보관되며, 이후 ${idle}`;
+                }
+                return idle;
+            }
+
             // URL에서 데이터 복원 및 렌더링 (Storage 또는 fragment)
             if (storageId) {
                 try {
@@ -164,11 +192,17 @@
                         const diagram = await resp.json();
                         const svg = grimRender(diagram.source);
                         svgContainer.innerHTML = svg;
+                        const text = expiryText(diagram.expiry);
+                        if (text) showNotice(text);
+                    } else if (resp.status === 404) {
+                        showNotice("다이어그램을 찾을 수 없습니다. 만료되었거나 잘못된 링크입니다.", "error");
                     } else {
                         console.warn("Failed to load diagram from storage:", resp.status);
+                        showNotice(`다이어그램을 불러오지 못했습니다. (${resp.status})`, "error");
                     }
                 } catch (e) {
                     console.warn("Failed to load diagram from storage:", e);
+                    showNotice("다이어그램을 불러오지 못했습니다.", "error");
                 }
             } else {
                 const enc = getDataFromFragment();

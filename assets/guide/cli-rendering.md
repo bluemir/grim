@@ -75,6 +75,20 @@ grim server --bind :3000
 
 ---
 
+## `grim storage` — 저장된 다이어그램 관리
+
+서버에 저장된 Short Link 다이어그램을 목록으로 보거나, 보관 기간을 늘리거나, 영구 보관·삭제합니다. 서버의 DB 파일을 직접 여는 관리자용 명령입니다.
+
+```sh
+grim storage --db-path ./grim.db ls
+grim storage --db-path ./grim.db pin {id}
+grim storage --db-path ./grim.db extend {id} 365d
+```
+
+자세한 내용은 [다이어그램 공유](sharing)의 관리자 명령을 참고하세요.
+
+---
+
 ## `grim guide` — 가이드 출력
 
 이 가이드 문서를 터미널에서 확인합니다.

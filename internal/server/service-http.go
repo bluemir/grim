@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"github.com/gin-contrib/location"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -43,6 +44,12 @@ func (server *Server) RunServiceHTTPServer(ctx context.Context, bind string, tls
 
 		// starting http server
 		app := gin.New()
+		if err := app.SetTrustedProxies(server.httpConfig.TrustedProxies); err != nil {
+			return errors.Wrap(err, "invalid http.trustedProxies")
+		}
+		if len(server.httpConfig.RemoteIPHeaders) > 0 {
+			app.RemoteIPHeaders = server.httpConfig.RemoteIPHeaders
+		}
 
 		// add template
 		if html, err := NewRenderer(); err != nil {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/bluemir/grim/internal/server/backend/auth"
 	"github.com/bluemir/grim/internal/server/backend/meta"
+	"github.com/bluemir/grim/internal/server/backend/storage"
 	"github.com/go-playground/validator/v10"
 	"github.com/mattn/go-sqlite3"
 	"github.com/sirupsen/logrus"
@@ -33,6 +34,12 @@ func code(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, meta.ErrNotImplemented):
 		return http.StatusNotImplemented
+	case errors.Is(err, storage.ErrStorageDisabled):
+		return http.StatusNotFound
+	case errors.Is(err, storage.ErrTooLarge):
+		return http.StatusRequestEntityTooLarge
+	case errors.Is(err, storage.ErrRateLimited):
+		return http.StatusTooManyRequests
 
 	// errors.As: type-based errors
 	case errors.As(err, &validationErrs):

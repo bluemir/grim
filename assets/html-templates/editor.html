@@ -340,7 +340,7 @@ A -&gt; B  # 인라인 주석</pre>
                         <button id="zoom-fit" title="Fit to view">Fit</button>
                         <button id="export-svg" title="Export as SVG">Export SVG</button>
                         {{if (config .).StorageEnabled}}
-                        <button id="short-link" title="Save and get short link">Short Link</button>
+                        <button id="short-link" title="Save a snapshot on the server and copy its short link">Short Link</button>
                         {{end}}
                         <button id="open-viewer" title="Open read-only viewer">Viewer</button>
                     </div>
@@ -394,10 +394,10 @@ A -&gt; B  # 인라인 주석</pre>
             }
 
             // --- Storage ID detection ---
-            const storageEnabled = {{ (config .).StorageEnabled }};
-            const pathMatch = window.location.pathname.match(/^\/edit\/([a-z0-9]+)$/);
-            let storageId = pathMatch ? pathMatch[1] : null;
-            let autoSaveTimer = null;
+            // /edit/{id} opens a stored snapshot. Snapshots are immutable, so the
+            // source is loaded once and editing continues in the #z= fragment.
+            const pathMatch = window.location.pathname.match(/^\/edit\/([A-Za-z0-9]+)$/);
+            const storageId = pathMatch ? pathMatch[1] : null;
 
             // Fragment에서 data 읽기 (#z= 압축 / #data= 레거시 / ?data= 레거시)
             function getDataFromFragment() {
@@ -417,7 +417,7 @@ A -&gt; B  # 인라인 주석</pre>
             }
 
             function setEncodedFragment(token) {
-                history.replaceState(null, "", window.location.pathname + "#z=" + token);
+                history.replaceState(null, "", "/edit#z=" + token);
             }
 
             // URL에서 데이터 복원 또는 Storage에서 로드
@@ -427,8 +427,12 @@ A -&gt; B  # 인라인 주석</pre>
                     if (resp.ok) {
                         const diagram = await resp.json();
                         editor.value = diagram.source;
+                        setEncodedFragment(await packData(diagram.source));
                     } else {
                         console.warn("Failed to load diagram from storage:", resp.status);
+                        alert(resp.status === 404
+                            ? "저장된 다이어그램을 찾을 수 없습니다. 만료되었거나 잘못된 링크입니다."
+                            : `저장된 다이어그램을 불러오지 못했습니다. (${resp.status})`);
                     }
                 } catch (e) {
                     console.warn("Failed to load diagram from storage:", e);
@@ -442,23 +446,6 @@ A -&gt; B  # 인라인 주석</pre>
                         console.warn("Failed to decode data from URL:", e);
                     }
                 }
-            }
-
-            // Auto-save to storage (debounced)
-            function scheduleAutoSave() {
-                if (!storageId) return;
-                clearTimeout(autoSaveTimer);
-                autoSaveTimer = setTimeout(async () => {
-                    try {
-                        await fetch(`/api/v1/storage/${storageId}`, {
-                            method: "PUT",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ source: editor.value }),
-                        });
-                    } catch (e) {
-                        console.warn("Auto-save failed:", e);
-                    }
-                }, 1000);
             }
 
             // 파싱 에러를 에디터(gutter/밑줄)와 하단 패널에 표시
@@ -513,14 +500,10 @@ A -&gt; B  # 인라인 주석</pre>
             }
 
             async function updateURL() {
-                if (storageId) {
-                    scheduleAutoSave();
-                    return;
-                }
                 if (editor.value) {
                     setEncodedFragment(await packData(editor.value));
                 } else {
-                    history.replaceState(null, "", window.location.pathname);
+                    history.replaceState(null, "", "/edit");
                 }
             }
 
@@ -748,31 +731,28 @@ A -&gt; B  # 인라인 주석</pre>
 
             const shortLinkBtn = document.getElementById("short-link");
             if (shortLinkBtn) {
+                const flash = (text) => {
+                    shortLinkBtn.textContent = text;
+                    setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
+                };
+                // Every click stores a snapshot of the current source. The id is a
+                // hash of the source, so re-sharing unchanged content returns the same link.
                 shortLinkBtn.addEventListener("click", async () => {
-                    if (!storageId) {
-                        // Create new diagram
-                        try {
-                            const resp = await fetch("/api/v1/storage", {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({ source: editor.value }),
-                            });
-                            if (!resp.ok) throw new Error("Failed to create diagram");
-                            const diagram = await resp.json();
-                            storageId = diagram.id;
-                            history.replaceState(null, "", `/edit/${storageId}`);
-                            shortLinkBtn.textContent = "Link Copied!";
-                            await navigator.clipboard.writeText(window.location.origin + `/view/${storageId}`);
-                            setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
-                        } catch (e) {
-                            console.error("Short link creation failed:", e);
-                        }
-                    } else {
-                        // Copy view URL to clipboard
-                        const viewUrl = window.location.origin + `/view/${storageId}`;
-                        await navigator.clipboard.writeText(viewUrl);
-                        shortLinkBtn.textContent = "Link Copied!";
-                        setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
+                    try {
+                        const resp = await fetch("/api/v1/storage", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ source: editor.value }),
+                        });
+                        if (resp.status === 413) { flash("Too Large"); return; }
+                        if (resp.status === 429) { flash("Try Later"); return; }
+                        if (!resp.ok) throw new Error(`Failed to create diagram: ${resp.status}`);
+                        const diagram = await resp.json();
+                        await navigator.clipboard.writeText(window.location.origin + `/view/${diagram.id}`);
+                        flash("Link Copied!");
+                    } catch (e) {
+                        console.error("Short link creation failed:", e);
+                        flash("Failed");
                     }
                 });
             }
@@ -780,10 +760,6 @@ A -&gt; B  # 인라인 주석</pre>
             // --- Open Viewer ---
 
             document.getElementById("open-viewer").addEventListener("click", () => {
-                if (storageId) {
-                    window.location.href = `/view/${storageId}`;
-                    return;
-                }
                 const url = new URL("/view", window.location.origin);
                 if (window.location.hash) {
                     url.hash = window.location.hash.slice(1);

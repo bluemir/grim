@@ -29,7 +29,7 @@ backend:
 	err := os.WriteFile(yamlPath, []byte(yamlContent), 0644)
 	require.NoError(t, err)
 
-	conf, err := readCofigFile(yamlPath)
+	conf, err := ReadConfigFile(yamlPath)
 	assert.NoError(t, err)
 	assert.Equal(t, "test-salt", conf.Backend.Auth.Salt)
 
@@ -47,7 +47,7 @@ backend:
 	err = os.WriteFile(hjsonPath, []byte(hjsonContent), 0644)
 	require.NoError(t, err)
 
-	conf, err = readCofigFile(hjsonPath)
+	conf, err = ReadConfigFile(hjsonPath)
 	assert.NoError(t, err)
 	assert.Equal(t, "test-salt-hjson", conf.Backend.Auth.Salt)
 
@@ -56,7 +56,7 @@ backend:
 	err = os.WriteFile(unknownPath, []byte(""), 0644)
 	require.NoError(t, err)
 
-	_, err = readCofigFile(unknownPath)
+	_, err = ReadConfigFile(unknownPath)
 	assert.Error(t, err)
 }
 
@@ -107,4 +107,59 @@ func TestGetTLSConfig(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, tlsConf)
 	assert.Len(t, tlsConf.Certificates, 1)
+}
+
+func TestReadConfigFileStorage(t *testing.T) {
+	tempDir := t.TempDir()
+
+	// Unset fields keep their defaults.
+	path := filepath.Join(tempDir, "empty.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("backend: {}\n"), 0644))
+	conf, err := ReadConfigFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, 90*24*time.Hour, conf.Backend.Storage.Retention.Std())
+	assert.EqualValues(t, 1<<20, conf.Backend.Storage.MaxSize)
+	assert.Equal(t, 30, conf.Backend.Storage.RateLimit.Create)
+
+	yamlContent := `
+http:
+  trustedProxies: ["10.0.0.0/8"]
+backend:
+  storage:
+    enabled: true
+    retention: 30d
+    maxSize: 512KiB
+    rateLimit:
+      create: 0
+`
+	path = filepath.Join(tempDir, "config.yaml")
+	require.NoError(t, os.WriteFile(path, []byte(yamlContent), 0644))
+	conf, err = ReadConfigFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"10.0.0.0/8"}, conf.HTTP.TrustedProxies)
+	assert.True(t, conf.Backend.Storage.Enabled)
+	assert.Equal(t, 30*24*time.Hour, conf.Backend.Storage.Retention.Std())
+	assert.EqualValues(t, 512<<10, conf.Backend.Storage.MaxSize)
+	assert.Equal(t, 0, conf.Backend.Storage.RateLimit.Create)
+	assert.Equal(t, time.Hour, conf.Backend.Storage.RateLimit.Window.Std(), "unset nested field keeps default")
+
+	hjsonContent := `
+{
+  http: { trustedProxies: ["127.0.0.1"] }
+  backend: {
+    storage: {
+      enabled: true
+      retention: "0"
+      maxSize: 2MiB
+    }
+  }
+}
+`
+	path = filepath.Join(tempDir, "config.hjson")
+	require.NoError(t, os.WriteFile(path, []byte(hjsonContent), 0644))
+	conf, err = ReadConfigFile(path)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"127.0.0.1"}, conf.HTTP.TrustedProxies)
+	assert.Zero(t, conf.Backend.Storage.Retention)
+	assert.EqualValues(t, 2<<20, conf.Backend.Storage.MaxSize)
 }

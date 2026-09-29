@@ -18,6 +18,11 @@ type Config struct {
 	Posts   posts.Config
 	Storage storage.Config
 }
+
+func DefaultConfig() Config {
+	return Config{Storage: storage.DefaultConfig()}
+}
+
 type Backends struct {
 	Auth    *auth.Manager
 	Events  *pubsub.Hub

@@ -1,62 +1,54 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/bluemir/grim/internal/server/backend/storage"
 )
 
 type createDiagramRequest struct {
 	Source string `json:"source" binding:"required"`
 }
 
+type diagramResponse struct {
+	*storage.Diagram
+	Expiry storage.Expiry `json:"expiry"`
+}
+
 func CreateDiagram(c *gin.Context) error {
+	s := backends(c).Storage
+	if limit := s.MaxRequestBytes(); limit > 0 {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, limit)
+	}
+
 	var req createDiagramRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
+		if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+			return storage.ErrTooLarge
+		}
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return nil
 	}
 
-	diagram, err := backends(c).Storage.Create(c.Request.Context(), req.Source)
+	diagram, err := s.Create(c.Request.Context(), req.Source, c.ClientIP())
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, diagram)
+	c.JSON(http.StatusCreated, diagramResponse{diagram, s.Expiry(diagram)})
 	return nil
 }
 
 func GetDiagram(c *gin.Context) error {
-	id := c.Param("id")
-
-	diagram, err := backends(c).Storage.Get(c.Request.Context(), id)
-	if err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
-		return nil
-	}
-
-	c.JSON(http.StatusOK, diagram)
-	return nil
-}
-
-type updateDiagramRequest struct {
-	Source string `json:"source" binding:"required"`
-}
-
-func UpdateDiagram(c *gin.Context) error {
-	id := c.Param("id")
-
-	var req updateDiagramRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return nil
-	}
-
-	diagram, err := backends(c).Storage.Update(c.Request.Context(), id, req.Source)
+	s := backends(c).Storage
+	diagram, err := s.Get(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, diagram)
+	c.JSON(http.StatusOK, diagramResponse{diagram, s.Expiry(diagram)})
 	return nil
 }

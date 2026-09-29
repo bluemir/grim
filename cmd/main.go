@@ -12,6 +12,7 @@ import (
 	guideCmd "github.com/bluemir/grim/cmd/guide"
 	renderCmd "github.com/bluemir/grim/cmd/render"
 	serverCmd "github.com/bluemir/grim/cmd/server"
+	storageCmd "github.com/bluemir/grim/cmd/storage"
 	"github.com/bluemir/grim/internal/buildinfo"
 )
 
@@ -63,6 +64,7 @@ func Run() error {
 	guideCmd.Register(app.Command("guide", "show .grim guide"))
 	renderCmd.Register(app.Command("render", "render .grim file to SVG"))
 	serverCmd.Register(app.Command("server", "server"))
+	storageCmd.Register(app.Command("storage", "manage diagrams stored by the server (admin)"))
 
 	cmd, err := app.Parse(os.Args[1:])
 	if err != nil {

@@ -33,10 +33,28 @@ type Args struct {
 }
 
 type Config struct {
+	HTTP    HTTPConfig `yaml:"http"`
 	Backend backend.Config
 }
 
+type HTTPConfig struct {
+	// TrustedProxies lists proxy IPs/CIDRs whose forwarding headers are
+	// believed when resolving the client IP. Empty means trust none and use
+	// the connection's remote address.
+	TrustedProxies []string `yaml:"trustedProxies"`
+	// RemoteIPHeaders overrides which headers carry the client IP
+	// (default: X-Forwarded-For, X-Real-IP).
+	RemoteIPHeaders []string `yaml:"remoteIPHeaders"`
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Backend: backend.DefaultConfig(),
+	}
+}
+
 type Server struct {
+	httpConfig     HTTPConfig
 	backends       *backend.Backends
 	frontendConfig *injector.FrontendConfig
 }
@@ -46,7 +64,7 @@ func Run(ctx context.Context, args *Args) error {
 		return err
 	}
 
-	conf, err := readCofigFile(args.ConfigFilePath)
+	conf, err := ReadConfigFile(args.ConfigFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "config file not exist. path: %s", args.ConfigFilePath)
 	}
@@ -65,7 +83,8 @@ func Run(ctx context.Context, args *Args) error {
 	}
 
 	server := &Server{
-		backends: bs,
+		httpConfig: conf.HTTP,
+		backends:   bs,
 		frontendConfig: &injector.FrontendConfig{
 			UseCDN:         args.UseCDN,
 			StorageEnabled: conf.Backend.Storage.Enabled,
@@ -151,8 +170,8 @@ func (s *Server) RunController(ctx context.Context) func() error {
 	}
 }
 
-func readCofigFile(configFilePath string) (*Config, error) {
-	conf := Config{}
+func ReadConfigFile(configFilePath string) (*Config, error) {
+	conf := DefaultConfig()
 
 	buf, err := os.ReadFile(configFilePath)
 	if err != nil {

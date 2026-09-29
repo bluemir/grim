@@ -34,7 +34,6 @@ func (server *Server) routes(app gin.IRouter, noRoute func(...gin.HandlerFunc)) 
 
 		v1.POST("/storage", api(handler.CreateDiagram))
 		v1.GET("/storage/:id", api(handler.GetDiagram))
-		v1.PUT("/storage/:id", api(handler.UpdateDiagram))
 
 		// WebSocket
 		//v1.GET("/ws", handler.Websocket)

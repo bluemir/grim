@@ -144,16 +144,25 @@ grim server -c config.hjson --db-path ./grim.db
         mail: {
             smtp: {
                 host: smtp.example.com
-                port: 587             // 생략 시 starttls 587, tls 465, none 25
+                port: 587             // 생략 시 starttls 587, tls 465, opportunistic·none 25
                 username: grim        // 지정하면 서버가 지원하는 가장 안전한 방식(PLAIN, LOGIN 등)으로 로그인
                 password: secret
                 from: grim <grim@example.com>
-                tls: starttls         // starttls(기본) | tls | none
+                tls: starttls         // starttls(기본) | opportunistic | tls | none
             }
         }
     }
 }
 ```
+
+`tls` 값의 의미는 다음과 같습니다.
+
+| 값 | 동작 |
+|---|---|
+| `starttls` (기본) | STARTTLS를 반드시 사용합니다. 서버가 지원하지 않으면 발송하지 않습니다. |
+| `opportunistic` | 서버가 STARTTLS를 지원하면 사용하고, 지원하지 않으면 암호화 없이 보냅니다. 인증 없이 IP로 허용하는 사내 relay 서버 등에 적합합니다. |
+| `tls` | 처음부터 TLS로 연결합니다(보통 465 포트). |
+| `none` | 암호화하지 않습니다. |
 
 `verification` 항목은 모두 생략할 수 있으며, 위 값이 기본값입니다. 메일을 설정하지 않은 서버에서는 메일 인증 버튼이 표시되지 않습니다.
 

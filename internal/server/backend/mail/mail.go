@@ -28,7 +28,11 @@ type SMTPConfig struct {
 	Password string
 	// From is the sender address, e.g. "grim <grim@example.com>".
 	From string
-	// TLS is "starttls" (default), "tls" (implicit TLS, usually port 465) or "none".
+	// TLS is one of:
+	//   "starttls" (default): require STARTTLS, usually port 587
+	//   "opportunistic": use STARTTLS if the server offers it, else plain, usually port 25
+	//   "tls": implicit TLS, usually port 465
+	//   "none": never encrypt, usually port 25
 	TLS string `yaml:"tls"`
 }
 
@@ -78,6 +82,9 @@ func New(conf *Config) (Sender, error) {
 	case "", "starttls":
 		opts = append(opts, gomail.WithTLSPolicy(gomail.TLSMandatory))
 		port = cmp.Or(port, 587)
+	case "opportunistic":
+		opts = append(opts, gomail.WithTLSPolicy(gomail.TLSOpportunistic))
+		port = cmp.Or(port, 25)
 	case "tls":
 		opts = append(opts, gomail.WithSSL())
 		port = cmp.Or(port, 465)
@@ -85,7 +92,7 @@ func New(conf *Config) (Sender, error) {
 		opts = append(opts, gomail.WithTLSPolicy(gomail.NoTLS))
 		port = cmp.Or(port, 25)
 	default:
-		return nil, errors.Errorf("unknown mail.smtp.tls: %q (use starttls, tls or none)", c.TLS)
+		return nil, errors.Errorf("unknown mail.smtp.tls: %q (use starttls, opportunistic, tls or none)", c.TLS)
 	}
 	opts = append(opts, gomail.WithPort(port))
 	if c.Username != "" {

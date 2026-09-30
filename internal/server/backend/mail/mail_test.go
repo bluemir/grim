@@ -214,3 +214,31 @@ func decodeTransfer(t *testing.T, encoding, body string) string {
 		return body
 	}
 }
+
+// The sink never offers STARTTLS, like a plain internal relay.
+func TestSendTLSPolicyAgainstPlainServer(t *testing.T) {
+	for _, tc := range []struct {
+		tls       string
+		delivered bool
+	}{
+		{tls: "opportunistic", delivered: true}, // falls back to plain
+		{tls: "none", delivered: true},
+		{tls: "starttls", delivered: false}, // must not silently send in plain
+	} {
+		t.Run(tc.tls, func(t *testing.T) {
+			sink := newSMTPSink(t)
+			s, err := New(&Config{SMTP: SMTPConfig{Host: "127.0.0.1", Port: sink.addr.Port, From: "grim@example.com", TLS: tc.tls}})
+			require.NoError(t, err)
+
+			err = s.Send(context.Background(), Message{To: "a@example.com", Subject: "s", Body: "b\n"})
+			_, data := sink.received()
+			if tc.delivered {
+				assert.NoError(t, err)
+				assert.Len(t, data, 1)
+			} else {
+				assert.Error(t, err)
+				assert.Empty(t, data)
+			}
+		})
+	}
+}

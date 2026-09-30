@@ -72,7 +72,7 @@
 - [x] 코드 편집 창에서 cmd+s, ctrl+s 막기
 - [x] bug: @style {fill: blue-gray-200, font-color: white} 이렇게 지정했음에도, 배경색이 검은색으로 나옴
 - [x] Shape 렌더링 — circle, diamond, cloud, cylinder, hexagon, parallelogram, rounded
-- [x] 엣지 waypoints — Ctrl+Click으로 꺾임점 추가/제거
+- [x] 엣지 waypoints — Alt+Click으로 꺾임점 추가/제거
 - [x] 엣지 anchor 지정 — top, bottom, left, right, center
 - [x] Material Design 색상을 렌더러에 통합
 - [x] bug: diamond 모양은 드래그로 위치를 바꿀수 없음

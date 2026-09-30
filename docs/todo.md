@@ -77,4 +77,3 @@
 	- admin: CLI(`grim storage ...`)로 기한 연장 / 영구 지정 (DB 직접 접근)
 - [ ] exec 가 제한된 환경용 admin 수단 (admin 계정 또는 토큰)
 - [ ] shortlink 별칭(alias): 고정 링크가 최신 스냅샷을 가리키도록 (소유권/인증 필요)
-- [ ] 연결선에 중간 지점 지정?

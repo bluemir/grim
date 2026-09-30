@@ -42,7 +42,7 @@ GUI에서 변경된 레이아웃(좌표), 스타일, 엣지 라우팅 정보는 
 ### 엣지 라우팅 및 픽셀 컨트롤
 - **기본 라우팅**: 직선(straight line) — 두 노드 중심 간 직선이 노드 경계와 만나는 점을 anchor로 자동 계산
 - **gap**: 노드 경계로부터 선이 시작/끝나는 간격 (px, 기본값: 4px)
-- **웨이포인트**: 엣지 위에 Ctrl + Click으로 꺾임 지점을 자유롭게 추가/제거 가능
+- **웨이포인트**: 엣지 위에 Alt + Click으로 꺾임 지점을 자유롭게 추가/제거 가능
 - **anchor 지정**: `@edge`에서 `anchors: ["right", "left"]` 등으로 수동 지정 가능 (top, bottom, left, right, center)
 - `@edge`는 라우팅 전용 (anchors, waypoints, gap), 스타일은 `@style`로 분리
 

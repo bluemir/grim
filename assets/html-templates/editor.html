@@ -379,7 +379,19 @@ A -&gt; B  # 인라인 주석</pre>
     @style {fill: blue-500, stroke: black}
     @text[markdown] {| **굵게** |}
     @icon {kind: user}
+}
+A -&gt; B {
+    @edge {waypoints: [{x: 250, y: 150}], anchors: ["right", "left"]}
 }</pre>
+                                </section>
+                                <section>
+                                    <h4>미리보기 조작</h4>
+                                    <pre>드래그              노드 이동 / 웨이포인트 이동
+Alt + 드래그        그리드 스냅 무시
+Alt + 엣지 클릭     웨이포인트 추가
+Alt + 점 클릭       웨이포인트 제거
+엣지 선택 + 방향키  웨이포인트 전체 이동</pre>
+                                    <p><a href="/guide/reference/keyboard" target="_blank" rel="noopener">단축키 &amp; 인터랙션 전체 보기 ↗</a></p>
                                 </section>
                             </div>
                         </div>
@@ -1478,7 +1490,7 @@ A -&gt; B  # 인라인 주석</pre>
                 if (!svg) return;
                 const pt = getSVGPoint(svg, e.clientX, e.clientY);
 
-                // Case 1: Ctrl+Click on a waypoint circle → remove it
+                // Case 1: Alt+Click on a waypoint circle → remove it
                 const waypointEl = e.target.closest("[data-waypoint-idx]");
                 if (waypointEl) {
                     const edgeGroup = waypointEl.closest("g[data-type='edge']");
@@ -1493,7 +1505,7 @@ A -&gt; B  # 인라인 주석</pre>
                     return;
                 }
 
-                // Case 2: Ctrl+Click on an edge → add waypoint at click position
+                // Case 2: Alt+Click on an edge → add waypoint at click position
                 const edgeGroup = e.target.closest("g[data-type='edge']");
                 if (!edgeGroup) return;
                 const line = parseInt(edgeGroup.dataset.line);

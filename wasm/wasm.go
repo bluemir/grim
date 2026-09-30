@@ -37,6 +37,7 @@ func main() {
 	js.Global().Set("grimSetEdgeWaypoints", js.FuncOf(setEdgeWaypointsGrim))
 	js.Global().Set("grimSetEdgeAnchors", js.FuncOf(setEdgeAnchorsGrim))
 	js.Global().Set("grimSetNodeSize", js.FuncOf(setNodeSizeGrim))
+	js.Global().Set("grimPinSiblings", js.FuncOf(pinSiblingsGrim))
 	js.Global().Set("grimShutdown", js.FuncOf(func(this js.Value, args []js.Value) any {
 		quit <- struct{}{} // 채널에 신호 전송
 		return nil
@@ -160,4 +161,17 @@ func renderGrim(this js.Value, args []js.Value) any {
 
 	svg := renderer.Render(doc)
 	return js.ValueOf(svg)
+}
+
+// pinSiblingsGrim fixes the auto-laid-out siblings of a node at their current
+// positions, so moving or resizing that node doesn't reflow them.
+func pinSiblingsGrim(this js.Value, args []js.Value) any {
+	code := args[0].String()
+	nodeID := args[1].String()
+	doc, err := parser.Parse(code)
+	if err != nil {
+		return js.ValueOf(code)
+	}
+	renderer.PinSiblings(doc, nodeID)
+	return js.ValueOf(parser.Format(doc))
 }

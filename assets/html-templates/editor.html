@@ -843,6 +843,8 @@ A -&gt; B  # 인라인 주석</pre>
                         newX = e.altKey ? curX + dx : snapToGrid(curX + dx, false);
                         newY = e.altKey ? curY + dy : snapToGrid(curY + dy, false);
                     }
+                    // Pin the auto-laid-out siblings first so they stay put when this node moves.
+                    editor.value = grimPinSiblings(editor.value, id);
                     editor.value = grimSetLayout(editor.value, id, newX, newY);
                     render();
                 } else if (selectedEdge) {
@@ -1198,6 +1200,8 @@ A -&gt; B  # 인라인 주석</pre>
                         newY -= parentY + LABEL_HEIGHT;
                     }
                     const id = group.dataset.id;
+                    // Resizing changes the grid too; pin siblings before writing the new size.
+                    editor.value = grimPinSiblings(editor.value, id);
                     editor.value = grimSetNodeSize(editor.value, id, Math.round(newX), Math.round(newY), Math.round(newW), Math.round(newH));
                     render();
                     const resizeLine = parseInt(group.dataset.line);
@@ -1299,6 +1303,8 @@ A -&gt; B  # 인라인 주석</pre>
                     newY = snapToGrid(rawY, e.altKey);
                 }
 
+                // Pin the auto-laid-out siblings first so they stay put when this node moves.
+                editor.value = grimPinSiblings(editor.value, id);
                 editor.value = grimSetLayout(editor.value, id, newX, newY);
                 render();
                 const dragLine = parseInt(group.dataset.line);

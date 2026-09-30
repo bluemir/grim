@@ -32,6 +32,9 @@ type fakeMailer struct {
 
 func (f *fakeMailer) Enabled() bool { return f.enabled }
 func (f *fakeMailer) Send(_ context.Context, msg mail.Message) error {
+	if err := msg.Validate(); err != nil {
+		return err // the real sender would reject it too
+	}
 	if f.fail[msg.To] {
 		return errors.New("smtp: mailbox unavailable")
 	}

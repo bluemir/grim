@@ -1,20 +1,20 @@
 package mail
 
 import (
+	"cmp"
 	"context"
-	"crypto/tls"
-	"fmt"
-	"mime"
-	"net"
-	"net/smtp"
-	"strconv"
+	netmail "net/mail"
 	"strings"
 	"time"
 
 	"github.com/cockroachdb/errors"
+	gomail "github.com/wneessen/go-mail"
 )
 
-var ErrMailDisabled = errors.New("mail is disabled")
+var (
+	ErrMailDisabled   = errors.New("mail is disabled")
+	ErrInvalidMessage = errors.New("invalid mail message")
+)
 
 type Config struct {
 	SMTP SMTPConfig `yaml:"smtp"`
@@ -33,9 +33,24 @@ type SMTPConfig struct {
 }
 
 type Message struct {
-	To      string
-	Subject string
-	Body    string // plain text
+	To      string // a bare address, without a display name
+	Subject string // a single line
+	Body    string // plain text; lines end with "\n", never "\r"
+}
+
+// Validate rejects messages that could inject headers or break SMTP line
+// rules. Messages are built by our own code, so a violation is a bug.
+func (msg Message) Validate() error {
+	if addr, err := netmail.ParseAddress(msg.To); err != nil || addr.Name != "" || addr.Address != msg.To {
+		return errors.Wrapf(ErrInvalidMessage, "recipient must be a bare address: %q", msg.To)
+	}
+	if strings.ContainsAny(msg.Subject, "\r\n") {
+		return errors.Wrap(ErrInvalidMessage, "subject must be a single line")
+	}
+	if strings.ContainsRune(msg.Body, '\r') {
+		return errors.Wrap(ErrInvalidMessage, `body lines must end with "\n" only`)
+	}
+	return nil
 }
 
 // Sender delivers mail. It is an interface so tests can capture messages.
@@ -45,18 +60,44 @@ type Sender interface {
 }
 
 func New(conf *Config) (Sender, error) {
-	if conf.SMTP.Host == "" {
+	c := conf.SMTP
+	if c.Host == "" {
 		return disabled{}, nil
 	}
-	switch conf.SMTP.TLS {
-	case "", "starttls", "tls", "none":
-	default:
-		return nil, errors.Errorf("unknown mail.smtp.tls: %q (use starttls, tls or none)", conf.SMTP.TLS)
-	}
-	if conf.SMTP.From == "" {
+	if c.From == "" {
 		return nil, errors.New("mail.smtp.from is required when mail.smtp.host is set")
 	}
-	return &smtpSender{conf: conf.SMTP}, nil
+	from, err := netmail.ParseAddress(c.From)
+	if err != nil {
+		return nil, errors.Wrapf(err, "invalid mail.smtp.from: %q", c.From)
+	}
+
+	opts := []gomail.Option{gomail.WithTimeout(30 * time.Second)}
+	port := c.Port
+	switch c.TLS {
+	case "", "starttls":
+		opts = append(opts, gomail.WithTLSPolicy(gomail.TLSMandatory))
+		port = cmp.Or(port, 587)
+	case "tls":
+		opts = append(opts, gomail.WithSSL())
+		port = cmp.Or(port, 465)
+	case "none":
+		opts = append(opts, gomail.WithTLSPolicy(gomail.NoTLS))
+		port = cmp.Or(port, 25)
+	default:
+		return nil, errors.Errorf("unknown mail.smtp.tls: %q (use starttls, tls or none)", c.TLS)
+	}
+	opts = append(opts, gomail.WithPort(port))
+	if c.Username != "" {
+		// Pick the strongest mechanism the server offers; some servers
+		// (e.g. Exchange / Office 365) accept LOGIN but not PLAIN.
+		opts = append(opts,
+			gomail.WithSMTPAuth(gomail.SMTPAuthAutoDiscover),
+			gomail.WithUsername(c.Username),
+			gomail.WithPassword(c.Password),
+		)
+	}
+	return &smtpSender{host: c.Host, from: from, opts: opts}, nil
 }
 
 type disabled struct{}
@@ -65,102 +106,34 @@ func (disabled) Enabled() bool                       { return false }
 func (disabled) Send(context.Context, Message) error { return ErrMailDisabled }
 
 type smtpSender struct {
-	conf SMTPConfig
+	host string
+	from *netmail.Address
+	opts []gomail.Option
 }
 
 func (s *smtpSender) Enabled() bool { return true }
 
 func (s *smtpSender) Send(ctx context.Context, msg Message) error {
-	port := s.conf.Port
-	if port == 0 {
-		port = map[string]int{"tls": 465, "none": 25}[s.conf.TLS]
-		if port == 0 {
-			port = 587
-		}
-	}
-	addr := net.JoinHostPort(s.conf.Host, strconv.Itoa(port))
-	tlsConf := &tls.Config{ServerName: s.conf.Host}
-
-	dialer := &net.Dialer{Timeout: 30 * time.Second}
-	var conn net.Conn
-	var err error
-	if s.conf.TLS == "tls" {
-		conn, err = (&tls.Dialer{NetDialer: dialer, Config: tlsConf}).DialContext(ctx, "tcp", addr)
-	} else {
-		conn, err = dialer.DialContext(ctx, "tcp", addr)
-	}
-	if err != nil {
-		return errors.Wrapf(err, "dial smtp %s", addr)
-	}
-	if deadline, ok := ctx.Deadline(); ok {
-		conn.SetDeadline(deadline)
-	} else {
-		conn.SetDeadline(time.Now().Add(time.Minute))
-	}
-
-	c, err := smtp.NewClient(conn, s.conf.Host)
-	if err != nil {
-		conn.Close()
-		return errors.WithStack(err)
-	}
-	defer c.Close()
-
-	if s.conf.TLS == "" || s.conf.TLS == "starttls" {
-		if err := c.StartTLS(tlsConf); err != nil {
-			return errors.Wrap(err, "smtp starttls")
-		}
-	}
-	if s.conf.Username != "" {
-		if err := c.Auth(smtp.PlainAuth("", s.conf.Username, s.conf.Password, s.conf.Host)); err != nil {
-			return errors.Wrap(err, "smtp auth")
-		}
-	}
-
-	from, err := envelopeAddress(s.conf.From)
-	if err != nil {
+	// Reject an invalid message before connecting.
+	if err := msg.Validate(); err != nil {
 		return err
 	}
-	if err := c.Mail(from); err != nil {
+
+	m := gomail.NewMsg(gomail.WithCharset(gomail.CharsetUTF8))
+	if err := m.FromFormat(s.from.Name, s.from.Address); err != nil {
 		return errors.WithStack(err)
 	}
-	if err := c.Rcpt(msg.To); err != nil {
+	if err := m.To(msg.To); err != nil {
 		return errors.WithStack(err)
 	}
-	w, err := c.Data()
+	m.Subject(msg.Subject)
+	m.SetDate()
+	m.SetBodyString(gomail.TypeTextPlain, msg.Body)
+
+	// A client per send: go-mail clients hold connection state and sends may run concurrently.
+	client, err := gomail.NewClient(s.host, s.opts...)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	if _, err := w.Write(format(s.conf.From, msg)); err != nil {
-		return errors.WithStack(err)
-	}
-	if err := w.Close(); err != nil {
-		return errors.WithStack(err)
-	}
-	return errors.WithStack(c.Quit())
-}
-
-// envelopeAddress extracts the bare address from `name <addr>`.
-func envelopeAddress(from string) (string, error) {
-	if i := strings.LastIndex(from, "<"); i >= 0 {
-		j := strings.LastIndex(from, ">")
-		if j < i {
-			return "", errors.Errorf("invalid mail.smtp.from: %q", from)
-		}
-		return from[i+1 : j], nil
-	}
-	return strings.TrimSpace(from), nil
-}
-
-func format(from string, msg Message) []byte {
-	var b strings.Builder
-	fmt.Fprintf(&b, "From: %s\r\n", from)
-	fmt.Fprintf(&b, "To: %s\r\n", msg.To)
-	fmt.Fprintf(&b, "Subject: %s\r\n", mime.BEncoding.Encode("UTF-8", msg.Subject))
-	fmt.Fprintf(&b, "Date: %s\r\n", time.Now().Format(time.RFC1123Z))
-	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
-	b.WriteString("Content-Transfer-Encoding: 8bit\r\n")
-	b.WriteString("\r\n")
-	b.WriteString(strings.ReplaceAll(strings.ReplaceAll(msg.Body, "\r\n", "\n"), "\n", "\r\n"))
-	return []byte(b.String())
+	return errors.Wrap(client.DialAndSendWithContext(ctx, m), "send mail")
 }

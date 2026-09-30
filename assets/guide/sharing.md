@@ -145,7 +145,7 @@ grim server -c config.hjson --db-path ./grim.db
             smtp: {
                 host: smtp.example.com
                 port: 587             // 생략 시 starttls 587, tls 465, none 25
-                username: grim
+                username: grim        // 지정하면 서버가 지원하는 가장 안전한 방식(PLAIN, LOGIN 등)으로 로그인
                 password: secret
                 from: grim <grim@example.com>
                 tls: starttls         // starttls(기본) | tls | none

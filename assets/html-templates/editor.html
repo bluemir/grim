@@ -270,6 +270,64 @@
             body[data-code-collapsed] #svg-preview {
                 grid-column: span 12;
             }
+
+            #share-dialog {
+                width: min(480px, calc(100vw - 2rem));
+                padding: 0;
+                border: 1px solid var(--gray-400, #aaa);
+                border-radius: 8px;
+                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+                font-size: 0.9rem;
+            }
+            #share-dialog::backdrop {
+                background: rgba(0, 0, 0, 0.3);
+            }
+            #share-dialog header {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 0.6rem 0.9rem;
+                font-weight: 600;
+                border-bottom: 1px solid var(--gray-300, #ddd);
+                background: none;
+            }
+            #share-dialog header button {
+                border: none;
+                background: none;
+                font-size: 1.1rem;
+                cursor: pointer;
+                line-height: 1;
+            }
+            #share-dialog .share-body {
+                padding: 0.8rem 0.9rem 0.9rem;
+            }
+            #share-dialog .share-link {
+                display: flex;
+                gap: 0.4rem;
+            }
+            #share-dialog .share-link input {
+                flex: 1;
+                min-width: 0;
+                padding: 0.3rem 0.5rem;
+                font-family: monospace;
+                font-size: 0.85rem;
+            }
+            #share-dialog .share-link button {
+                cursor: pointer;
+                padding: 0.3rem 0.8rem;
+                white-space: nowrap;
+            }
+            #share-dialog p {
+                margin: 0.6rem 0 0;
+                color: var(--gray-700, #555);
+                line-height: 1.5;
+            }
+            #share-dialog [data-kind="error"] {
+                color: var(--red-700, #b00020);
+            }
+            #share-dialog [hidden] {
+                display: none;
+            }
         </style>
     </head>
     <body layout="one-page">
@@ -350,6 +408,26 @@ A -&gt; B  # 인라인 주석</pre>
                 </div>
             </div>
         </main>
+        {{if (config .).StorageEnabled}}
+        <dialog id="share-dialog" aria-labelledby="share-title">
+            <header>
+                <span id="share-title">Short Link</span>
+                <button type="button" id="share-close" aria-label="닫기">×</button>
+            </header>
+            <div class="share-body">
+                <p id="share-status" role="status">저장 중…</p>
+                <div id="share-result" hidden>
+                    <div class="share-link">
+                        <input id="share-url" type="text" readonly aria-label="공유 링크">
+                        <button type="button" id="share-copy">복사</button>
+                    </div>
+                    <p id="share-expiry"></p>
+                    <p>현재 내용의 스냅샷입니다. 수정한 뒤 다시 공유하면 새 링크가 만들어집니다.</p>
+                    <p><a id="share-preview" target="_blank" rel="noopener">미리보기</a></p>
+                </div>
+            </div>
+        </dialog>
+        {{end}}
         <script src="/static/{{rev .}}/bundle/wasm/wasm_exec.js"></script>
         <script type="module">
             const editor = document.getElementById("code-editor-wrapper");
@@ -730,30 +808,98 @@ A -&gt; B  # 인라인 주석</pre>
             // --- Short Link ---
 
             const shortLinkBtn = document.getElementById("short-link");
-            if (shortLinkBtn) {
-                const flash = (text) => {
-                    shortLinkBtn.textContent = text;
-                    setTimeout(() => { shortLinkBtn.textContent = "Short Link"; }, 2000);
+            const shareDialog = document.getElementById("share-dialog");
+            if (shortLinkBtn && shareDialog) {
+                const shareStatus = document.getElementById("share-status");
+                const shareResult = document.getElementById("share-result");
+                const shareUrl = document.getElementById("share-url");
+                const shareCopy = document.getElementById("share-copy");
+                const shareExpiry = document.getElementById("share-expiry");
+                const sharePreview = document.getElementById("share-preview");
+
+                const showStatus = (text, kind = "info") => {
+                    shareStatus.textContent = text;
+                    shareStatus.dataset.kind = kind;
+                    shareStatus.hidden = false;
                 };
+
+                // How long the snapshot is kept, and how the viewer can keep it longer.
+                const expiryText = (expiry) => {
+                    const date = (t) => new Date(t).toLocaleDateString();
+                    if (!expiry) return "";
+                    if (expiry.pinned) return "영구 보관됩니다.";
+                    if (expiry.verifiedUntil) {
+                        return `메일 인증되어 ${date(expiry.verifiedUntil)}까지 보관됩니다. 보관 기간이 끝나기 전에 등록된 메일로 연장 안내가 발송됩니다.`;
+                    }
+                    if (!expiry.idleDays) return "이 서버에서는 만료되지 않습니다.";
+                    const idle = `${expiry.idleDays}일간 조회가 없으면 만료됩니다.`;
+                    const kept = expiry.keepUntil ? `${date(expiry.keepUntil)}까지 보관되며, 이후 ${idle}` : idle;
+                    const extend = expiry.canVerify
+                        ? `더 오래 보관하려면 미리보기 화면 상단에서 메일 인증을 하세요. 인증하면 ${expiry.verifyDays}일간 보관됩니다.`
+                        : "링크를 열어 볼 때마다 보관 기간이 다시 시작됩니다.";
+                    return `${kept} ${extend}`;
+                };
+
                 // Every click stores a snapshot of the current source. The id is a
                 // hash of the source, so re-sharing unchanged content returns the same link.
+                // Copying happens only from the dialog's button: that click is a fresh
+                // user gesture in a focused document, so the clipboard accepts it.
                 shortLinkBtn.addEventListener("click", async () => {
+                    shareResult.hidden = true;
+                    shareCopy.textContent = "복사";
+                    shareDialog.showModal();
+
+                    if (!editor.value.trim()) {
+                        showStatus("저장할 내용이 없습니다. 다이어그램을 작성한 뒤 다시 시도해 주세요.", "error");
+                        return;
+                    }
+                    showStatus("저장 중…");
                     try {
                         const resp = await fetch("/api/v1/storage", {
                             method: "POST",
-                            headers: { "Content-Type": "application/json" },
+                            headers: { "Content-Type": "application/json", "Accept": "application/json" },
                             body: JSON.stringify({ source: editor.value }),
                         });
-                        if (resp.status === 413) { flash("Too Large"); return; }
-                        if (resp.status === 429) { flash("Try Later"); return; }
-                        if (!resp.ok) throw new Error(`Failed to create diagram: ${resp.status}`);
+                        if (resp.status === 413) {
+                            showStatus("다이어그램이 너무 커서 저장할 수 없습니다.", "error");
+                            return;
+                        }
+                        if (resp.status === 429) {
+                            showStatus("짧은 시간에 너무 많이 저장했습니다. 잠시 후 다시 시도해 주세요.", "error");
+                            return;
+                        }
+                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                         const diagram = await resp.json();
-                        await navigator.clipboard.writeText(window.location.origin + `/view/${diagram.id}`);
-                        flash("Link Copied!");
+
+                        const url = window.location.origin + `/view/${diagram.id}`;
+                        shareUrl.value = url;
+                        sharePreview.href = url;
+                        shareExpiry.textContent = expiryText(diagram.expiry);
+                        shareStatus.hidden = true;
+                        shareResult.hidden = false;
+                        shareUrl.focus();
+                        shareUrl.select(); // Ctrl+C works right away too
                     } catch (e) {
                         console.error("Short link creation failed:", e);
-                        flash("Failed");
+                        showStatus(`저장하지 못했습니다. (${e.message}) 잠시 후 다시 시도해 주세요.`, "error");
                     }
+                });
+
+                shareCopy.addEventListener("click", async () => {
+                    try {
+                        await navigator.clipboard.writeText(shareUrl.value);
+                        shareCopy.textContent = "복사됨 ✓";
+                    } catch (e) {
+                        console.warn("Clipboard write failed:", e);
+                        shareUrl.select();
+                        shareCopy.textContent = "Ctrl+C로 복사";
+                    }
+                });
+
+                document.getElementById("share-close").addEventListener("click", () => shareDialog.close());
+                // Clicking the backdrop (outside the dialog box) closes it.
+                shareDialog.addEventListener("click", (e) => {
+                    if (e.target === shareDialog) shareDialog.close();
                 });
             }
 
@@ -776,6 +922,7 @@ A -&gt; B  # 인라인 주석</pre>
             const WASD_CODES = new Set(["KeyW", "KeyA", "KeyS", "KeyD"]);
 
             window.addEventListener("keydown", (e) => {
+                if (document.querySelector("dialog[open]")) return; // a modal owns the keyboard
                 const tag = document.activeElement?.tagName;
                 if (tag === "TEXTAREA" || tag === "INPUT" || document.activeElement?.closest("c-editor")) return;
                 if (WASD_CODES.has(e.code) && !pressedKeys.has(e.code)) {
@@ -806,6 +953,7 @@ A -&gt; B  # 인라인 주석</pre>
             const ARROW_CODES = new Set(["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"]);
 
             window.addEventListener("keydown", (e) => {
+                if (document.querySelector("dialog[open]")) return; // a modal owns the keyboard
                 // Escape: deselect node/edge
                 if (e.code === "Escape" && (selectedGroup || selectedEdge)) {
                     if (selectedGroup) { selectedGroup.classList.remove("selected"); selectedGroup = null; removeResizeHandles(); }

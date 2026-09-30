@@ -101,6 +101,8 @@ type Expiry struct {
 	Contacts int `json:"contacts"`
 	// CanVerify tells the viewer whether it may offer email registration.
 	CanVerify bool `json:"canVerify"`
+	// VerifyDays is how long email verification keeps a diagram, when CanVerify.
+	VerifyDays int `json:"verifyDays,omitempty"`
 }
 
 const (
@@ -253,6 +255,9 @@ func (m *Manager) Expiry(ctx context.Context, d *Diagram) (Expiry, error) {
 		IdleDays:      m.conf.Retention.Days(),
 		VerifiedUntil: d.VerifiedUntil,
 		CanVerify:     m.VerificationEnabled(),
+	}
+	if e.CanVerify {
+		e.VerifyDays = m.conf.Verification.Retention.Days()
 	}
 	if d.KeepUntil != nil && d.KeepUntil.After(d.LastViewedAt.Add(m.conf.Retention.Std())) {
 		e.KeepUntil = d.KeepUntil

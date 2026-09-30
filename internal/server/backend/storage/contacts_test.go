@@ -85,6 +85,7 @@ func TestVerifyKeepsDiagram(t *testing.T) {
 	assert.Equal(t, 0, e.Contacts)
 	assert.Nil(t, e.VerifiedUntil)
 	assert.True(t, e.CanVerify)
+	assert.Equal(t, 365, e.VerifyDays)
 
 	res, err := m.ConfirmContact(ctx, tokens(t, f.sent[0], "confirm")[0])
 	require.NoError(t, err)

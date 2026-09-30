@@ -71,6 +71,8 @@ grim은 다이어그램 소스 코드를 압축하여 URL의 fragment(`#z=...`)�
 
 Short Link 기능은 기본적으로 비활성화되어 있습니다. 서버 설정 파일에서 활성화할 수 있습니다.
 
+> **주의 (hjson 주석)**: hjson에서 따옴표 없는 문자열은 줄 끝까지가 값입니다. `host: smtp.example.com  // 설명`처럼 값 뒤에 주석을 붙이면 `// 설명`까지 값에 포함됩니다. 문자열 값은 `"..."`로 감싸고, 주석은 값 위의 별도 줄에 쓰세요. 숫자와 `true`/`false`에는 따옴표를 쓰지 않습니다.
+
 ```hjson
 {
     backend: {
@@ -97,13 +99,13 @@ grim server -c config.hjson --db-path ./grim.db
         storage: {
             enabled: true
             // 마지막 조회 후 이 기간이 지나면 삭제. "0"이면 삭제하지 않음
-            retention: 90d
+            retention: "90d"
             // 저장 가능한 소스 최대 크기
-            maxSize: 1MiB
+            maxSize: "1MiB"
             rateLimit: {
                 // IP당 window 동안 새로 저장할 수 있는 개수. 0이면 제한 없음
                 create: 30
-                window: 1h
+                window: "1h"
             }
         }
     }
@@ -128,28 +130,36 @@ grim server -c config.hjson --db-path ./grim.db
 ```hjson
 {
     http: {
-        baseURL: https://grim.example.com
+        baseURL: "https://grim.example.com"
     }
     backend: {
         storage: {
             enabled: true
-            retention: 30d
+            retention: "30d"
             verification: {
-                retention: 365d       // 인증(또는 연장) 후 보관 기간
-                remindBefore: 30d     // 만료 몇 일 전부터 확인 메일을 보낼지
-                remindInterval: 5d    // 확인 메일 간격
-                reminders: 4          // 확인 메일 총 횟수
-                dailyLimit: 30        // 같은 주소로 하루에 보낼 수 있는 인증 메일 수 (0이면 제한 없음)
+                // 인증(또는 연장) 후 보관 기간
+                retention: "365d"
+                // 만료 몇 일 전부터 확인 메일을 보낼지
+                remindBefore: "30d"
+                // 확인 메일 간격
+                remindInterval: "5d"
+                // 확인 메일 총 횟수
+                reminders: 4
+                // 같은 주소로 하루에 보낼 수 있는 인증 메일 수 (0이면 제한 없음)
+                dailyLimit: 30
             }
         }
         mail: {
             smtp: {
-                host: smtp.example.com
-                port: 587             // 생략 시 starttls 587, tls 465, opportunistic·none 25
-                username: grim        // 지정하면 서버가 지원하는 가장 안전한 방식(PLAIN, LOGIN 등)으로 로그인
-                password: secret
-                from: grim <grim@example.com>
-                tls: starttls         // starttls(기본) | opportunistic | tls | none
+                host: "smtp.example.com"
+                // 생략 시 starttls 587, tls 465, opportunistic·none 25
+                port: 587
+                // 지정하면 서버가 지원하는 가장 안전한 방식(PLAIN, LOGIN 등)으로 로그인
+                username: "grim"
+                password: "secret"
+                from: "grim <grim@example.com>"
+                // starttls(기본) | opportunistic | tls | none
+                tls: "starttls"
             }
         }
     }

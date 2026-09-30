@@ -1,9 +1,8 @@
-ARG VERSION=dev
 FROM fedora:44 AS build-env
 
 RUN echo "fastestmirror=1" >> /etc/dnf/dnf.conf
 RUN dnf install -y \
-    make findutils which \
+    make findutils which git-core \
     golang nodejs \
     && dnf clean all
 
@@ -29,12 +28,14 @@ RUN go mod download
 RUN npm install
 
 # build
+## VERSION can be passed with --build-arg; when it is unset or empty it is
+## derived from `git describe`, so keep .git in the build context.
 ARG VERSION
 
 ## copy source
 COPY . /src
 
-RUN make prod
+RUN VERSION="${VERSION:-$(git describe --tags --dirty --always)}" make prod
 
 ################################################################################
 # running image

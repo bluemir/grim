@@ -16,24 +16,25 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/bluemir/grim/internal/server/backend/mail"
-	"github.com/bluemir/grim/internal/util"
 )
 
 var (
 	ErrInvalidEmail = errors.New("invalid email address")
-	ErrLinkExpired  = errors.New("link is invalid or has expired")
+	// ErrInvalidLink means the token matches no registration: the address was
+	// removed, re-registered with a newer link, or the diagram was deleted.
+	ErrInvalidLink = errors.New("link is no longer valid")
 )
 
 // Contact is an email address registered on one diagram. There are no
-// accounts: the token in mailed links is the only credential.
+// accounts: the token in mailed links is the only credential. Links stay
+// valid as long as the registration exists; it is deleted with the diagram.
 type Contact struct {
-	Id            uint       `gorm:"primaryKey"`
-	DiagramId     string     `gorm:"uniqueIndex:idx_contact_diagram_email;index"`
-	Email         string     `gorm:"uniqueIndex:idx_contact_diagram_email"`
-	Token         string     `gorm:"uniqueIndex"`
-	TokenIssuedAt time.Time  // for the validity of the verification link
-	VerifiedAt    *time.Time // nil until the address owner confirms
-	CreatedAt     time.Time
+	Id         uint       `gorm:"primaryKey"`
+	DiagramId  string     `gorm:"uniqueIndex:idx_contact_diagram_email;index"`
+	Email      string     `gorm:"uniqueIndex:idx_contact_diagram_email"`
+	Token      string     `gorm:"uniqueIndex"`
+	VerifiedAt *time.Time // nil until the address owner confirms
+	CreatedAt  time.Time
 }
 
 // MailLog records verification mails for the per-address daily limit.
@@ -87,8 +88,7 @@ func (m *Manager) AddContact(ctx context.Context, diagramID, email string) error
 	if err != nil {
 		return err
 	}
-	contact.Token = token
-	contact.TokenIssuedAt = now
+	contact.Token = token // replaces any earlier link for this address
 	if err := m.db.WithContext(ctx).Save(contact).Error; err != nil {
 		return errors.WithStack(err)
 	}
@@ -128,10 +128,6 @@ func (m *Manager) ConfirmContact(ctx context.Context, token string) (*ContactRes
 	if err != nil {
 		return nil, err
 	}
-	if contact.VerifiedAt == nil && now.Sub(contact.TokenIssuedAt) > m.conf.Verification.LinkTTL.Std() {
-		return nil, ErrLinkExpired
-	}
-
 	until := now.Add(m.conf.Verification.Retention.Std())
 	err = m.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		if contact.VerifiedAt == nil {
@@ -167,11 +163,11 @@ func (m *Manager) RemoveContact(ctx context.Context, token string) (*ContactResu
 func (m *Manager) contactByToken(ctx context.Context, token string) (*Contact, error) {
 	contact := &Contact{}
 	if token == "" {
-		return nil, ErrLinkExpired
+		return nil, ErrInvalidLink
 	}
 	err := m.db.WithContext(ctx).Take(contact, "token = ?", token).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, ErrLinkExpired
+		return nil, ErrInvalidLink
 	}
 	return contact, errors.WithStack(err)
 }
@@ -298,16 +294,9 @@ func (m *Manager) lapseVerifications(ctx context.Context, now time.Time) error {
 	return errors.WithStack(err)
 }
 
-// pruneContactsAndLogs drops registrations whose verification link expired
-// unused, and mail logs older than the daily-limit window.
-func (m *Manager) pruneContactsAndLogs(ctx context.Context, now time.Time) error {
-	err := m.db.WithContext(ctx).
-		Where("verified_at IS NULL AND token_issued_at < ?", now.Add(-m.conf.Verification.LinkTTL.Std())).
-		Delete(&Contact{}).Error
-	if err != nil {
-		return errors.WithStack(err)
-	}
-	err = m.db.WithContext(ctx).Where("sent_at < ?", now.Add(-24*time.Hour)).Delete(&MailLog{}).Error
+// pruneMailLogs drops mail logs older than the daily-limit window.
+func (m *Manager) pruneMailLogs(ctx context.Context, now time.Time) error {
+	err := m.db.WithContext(ctx).Where("sent_at < ?", now.Add(-24*time.Hour)).Delete(&MailLog{}).Error
 	return errors.WithStack(err)
 }
 
@@ -330,7 +319,8 @@ func (m *Manager) verificationMail(d *Diagram, c *Contact, now time.Time) mail.M
 	fmt.Fprintf(&b, "다이어그램: %s\n\n", m.link("/view/"+d.Id))
 	fmt.Fprintf(&b, "아래 링크에서 인증하면 %s까지 보관됩니다.\n", now.Add(v.Retention.Std()).Format(dateLayout))
 	fmt.Fprintf(&b, "보관 기간이 끝나기 %d일 전부터 연장 확인 메일을 보내 드립니다.\n\n", v.RemindBefore.Days())
-	fmt.Fprintf(&b, "인증하기 (%s 동안 유효): %s\n\n", ttlText(v.LinkTTL), m.contactLink("confirm", c.Token))
+	fmt.Fprintf(&b, "인증하기: %s\n", m.contactLink("confirm", c.Token))
+	fmt.Fprintf(&b, "이 링크는 다이어그램이 삭제되기 전까지 유효합니다.\n\n")
 	fmt.Fprintf(&b, "직접 등록하지 않았다면 이 메일을 무시하세요. 인증하지 않으면 주소는 저장되지 않습니다.\n")
 	return mail.Message{To: c.Email, Subject: "[grim] 다이어그램 보관 메일 인증", Body: b.String()}
 }
@@ -355,14 +345,6 @@ func (m *Manager) reminderMail(email string, contacts []Contact, diagrams map[st
 		fmt.Fprintf(&b, "  이 다이어그램에서 내 메일 삭제: %s\n\n", m.contactLink("remove", c.Token))
 	}
 	return mail.Message{To: email, Subject: "[grim] 다이어그램 보관 기간 만료 예정 안내", Body: b.String()}
-}
-
-func ttlText(d util.Duration) string {
-	td := d.Std()
-	if td > 48*time.Hour && td%(24*time.Hour) == 0 {
-		return fmt.Sprintf("%d일", td/(24*time.Hour))
-	}
-	return fmt.Sprintf("%d시간", int(td.Hours()))
 }
 
 func newToken() (string, error) {

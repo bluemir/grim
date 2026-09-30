@@ -43,8 +43,6 @@ type VerificationConfig struct {
 	RemindInterval util.Duration `yaml:"remindInterval"`
 	// Reminders is the total number of confirmation mails, including the first.
 	Reminders int
-	// LinkTTL is how long the link in a verification mail stays valid.
-	LinkTTL util.Duration `yaml:"linkTTL"`
 	// DailyLimit caps verification mails sent to one address per 24 hours. 0 disables the limit.
 	DailyLimit int `yaml:"dailyLimit"`
 }
@@ -68,7 +66,6 @@ func DefaultConfig() Config {
 			RemindBefore:   util.Duration(30 * 24 * time.Hour),
 			RemindInterval: util.Duration(5 * 24 * time.Hour),
 			Reminders:      4,
-			LinkTTL:        util.Duration(24 * time.Hour),
 			DailyLimit:     30,
 		},
 	}
@@ -294,7 +291,7 @@ func (m *Manager) Cleanup(ctx context.Context) (int64, error) {
 	if err := m.lapseVerifications(ctx, now); err != nil {
 		return 0, err
 	}
-	if err := m.pruneContactsAndLogs(ctx, now); err != nil {
+	if err := m.pruneMailLogs(ctx, now); err != nil {
 		return 0, err
 	}
 	if m.conf.Retention == 0 {

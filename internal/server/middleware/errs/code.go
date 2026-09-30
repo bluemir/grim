@@ -39,7 +39,7 @@ func code(err error) int {
 		return http.StatusNotFound
 	case errors.Is(err, storage.ErrInvalidEmail):
 		return http.StatusBadRequest
-	case errors.Is(err, storage.ErrLinkExpired):
+	case errors.Is(err, storage.ErrInvalidLink):
 		return http.StatusGone
 	case errors.Is(err, storage.ErrTooLarge):
 		return http.StatusRequestEntityTooLarge

@@ -102,23 +102,47 @@ func TestVerifyKeepsDiagram(t *testing.T) {
 	assert.EqualValues(t, 0, n)
 }
 
-func TestVerificationLinkExpires(t *testing.T) {
+func TestVerificationLinkValidUntilDiagramDeleted(t *testing.T) {
 	m, clock, f := newTestManagerWithMail(t, true, internalConfig)
+	ctx := context.Background()
+
+	// A late click still works while the diagram exists.
+	d, _ := m.Create(ctx, "A", "ip")
+	require.NoError(t, m.AddContact(ctx, d.Id, "a@example.com"))
+	clock.advance(20 * day)
+	_, err := m.ConfirmContact(ctx, tokens(t, f.sent[0], "confirm")[0])
+	assert.NoError(t, err)
+
+	// Pending registrations stay until the diagram is deleted, then go with it.
+	gone, _ := m.Create(ctx, "B", "ip")
+	require.NoError(t, m.AddContact(ctx, gone.Id, "b@example.com"))
+	pending := tokens(t, f.sent[len(f.sent)-1], "confirm")[0]
+	clock.advance(31 * day)
+	n, err := m.Cleanup(ctx)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, n, "the unverified diagram expires; the verified one is kept")
+
+	_, err = m.ConfirmContact(ctx, pending)
+	assert.ErrorIs(t, err, ErrInvalidLink)
+	var left int64
+	m.db.Model(&Contact{}).Where("diagram_id = ?", gone.Id).Count(&left)
+	assert.EqualValues(t, 0, left)
+}
+
+func TestReRegisterInvalidatesEarlierLink(t *testing.T) {
+	m, _, f := newTestManagerWithMail(t, true, internalConfig)
 	ctx := context.Background()
 
 	d, _ := m.Create(ctx, "A", "ip")
 	require.NoError(t, m.AddContact(ctx, d.Id, "a@example.com"))
-	clock.advance(25 * time.Hour)
+	first := tokens(t, f.sent[0], "confirm")[0]
+	require.NoError(t, m.AddContact(ctx, d.Id, "a@example.com"))
+	second := tokens(t, f.sent[1], "confirm")[0]
 
-	_, err := m.ConfirmContact(ctx, tokens(t, f.sent[0], "confirm")[0])
-	assert.ErrorIs(t, err, ErrLinkExpired)
-
-	// Expired pending registrations are pruned.
-	_, err = m.Cleanup(ctx)
-	require.NoError(t, err)
-	var n int64
-	m.db.Model(&Contact{}).Count(&n)
-	assert.EqualValues(t, 0, n)
+	_, err := m.ConfirmContact(ctx, first)
+	assert.ErrorIs(t, err, ErrInvalidLink)
+	_, err = m.ConfirmContact(ctx, second)
+	assert.NoError(t, err)
 }
 
 func TestAddContactValidation(t *testing.T) {
@@ -299,7 +323,7 @@ func TestRemoveContact(t *testing.T) {
 	assert.Equal(t, 0, e.Contacts)
 
 	_, err = m.RemoveContact(ctx, tokens(t, f.sent[0], "remove")[0])
-	assert.ErrorIs(t, err, ErrLinkExpired, "the token is gone with the contact")
+	assert.ErrorIs(t, err, ErrInvalidLink, "the token is gone with the contact")
 
 	f.sent = nil
 	clock.advance(5 * day)
